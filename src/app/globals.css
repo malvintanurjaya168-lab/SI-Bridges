@@ -1,0 +1,80 @@
+@import "tailwindcss";
+
+:root {
+  --sidebar: #0b1f33;
+  --sidebar-2: #10293f;
+  --accent: #059669;
+  --accent-2: #0d9488;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  background: #f4f7f9;
+  color: #0f172a;
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+/* Leaflet overrides */
+.leaflet-container {
+  font-family: inherit;
+  z-index: 0;
+}
+.leaflet-popup-content-wrapper {
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.18);
+}
+.leaflet-popup-content {
+  margin: 12px 16px;
+  font-size: 13px;
+}
+.leaflet-control-zoom {
+  border: none !important;
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.15) !important;
+  border-radius: 10px !important;
+  overflow: hidden;
+}
+.leaflet-control-zoom a {
+  border: none !important;
+  color: #0b1f33 !important;
+}
+.leaflet-control-attribution {
+  font-size: 9px;
+  background: rgba(255, 255, 255, 0.7);
+}
+
+/* Marker pins */
+.wm-pin {
+  width: 22px;
+  height: 22px;
+  border-radius: 50% 50% 50% 4px;
+  transform: rotate(-45deg);
+  border: 2.5px solid #fff;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.35);
+}
+.wm-pin.high { background: #dc2626; }
+.wm-pin.moderate { background: #f97316; }
+.wm-pin.low { background: #16a34a; }
+.wm-pin.truck { background: #0d9488; border-radius: 6px; transform: rotate(0); width: 18px; height: 18px; }
+.wm-pin.facility { background: #1e40af; border-radius: 6px; transform: rotate(0); width: 16px; height: 16px; }
+.wm-pin.flood { background: transparent; border: 3px solid #7c3aed; width: 26px; height: 26px; box-shadow: none; }
+
+/* Scrollbars */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+.pulse-dot { animation: pulse-dot 1.6s ease-in-out infinite; }
+
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.fade-up { animation: fade-up 0.35s ease both; }
