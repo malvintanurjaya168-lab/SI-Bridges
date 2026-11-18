@@ -72,7 +72,7 @@ async function analyzeOpenAI(base64: string, mime: string, location: string, dis
 }
 
 async function analyzeGemini(base64: string, mime: string, location: string, district: string): Promise<AnalysisResult> {
-  const model = process.env.GEMINI_MODEL || "gemini-2.5-flash";
+  const model = process.env.GEMINI_MODEL || "gemini-3.8-flash";
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${process.env.GEMINI_API_KEY}`;
   const res = await fetch(url, {
     method: "POST",
