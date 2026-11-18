@@ -4,6 +4,7 @@ import React, { useRef, useState } from "react";
 import { Upload, Image as ImageIcon, Loader2, CheckCircle2, XCircle, ClipboardList, Sparkles, AlertTriangle } from "lucide-react";
 import { Card, Button, Input, Label, Select, Badge, SeverityBadge, StatusBadge, DemoTag, fmtDate, cn, EmptyState } from "@/components/ui";
 import { useStore } from "@/lib/store";
+import { detectImage, summarizeDetections, type YoloDet } from "@/lib/yolo";
 import { AIAnalysis, WasteDetection } from "@/lib/types";
 import { DISTRICTS } from "@/lib/geo";
 
@@ -17,6 +18,8 @@ export default function DetectionPage() {
   const [lat, setLat] = useState("-6.2000");
   const [lng, setLng] = useState("106.8200");
   const [analyzing, setAnalyzing] = useState(false);
+  const [annotated, setAnnotated] = useState<string | null>(null);
+  const [engine, setEngine] = useState<"yolo" | "demo">("yolo");
   const [result, setResult] = useState<(AIAnalysis & { detection?: WasteDetection }) | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [taskTruck, setTaskTruck] = useState("");
@@ -38,16 +41,67 @@ export default function DetectionPage() {
     return Object.keys(e).length === 0;
   };
 
-  const runAnalysis = () => {
-    if (!validate()) return;
+  const runAnalysis = async () => {
+    if (!validate() || !preview) return;
     setAnalyzing(true);
     setTaskMsg("");
-    setTimeout(() => {
+    setAnnotated(null);
+    try {
+      // Real on-device inference with YOLO26n
+      const img = new Image();
+      img.src = preview;
+      await img.decode();
+      const dets = await detectImage(img);
+      const sum = summarizeDetections(dets);
+      const wasteLabels = Object.entries(sum.counts).map(([l, n]) => `${l} ×${n}`).join(", ");
+      const analysis: AIAnalysis = {
+        severity: sum.severity,
+        confidence: sum.confidence,
+        observations: [
+          sum.wasteCount > 0
+            ? `Detected ${sum.wasteCount} waste-related object(s): ${wasteLabels}.`
+            : `No waste-related objects detected; ${sum.totalDetections} other object(s) in scene.`,
+          `Scene contains ${sum.totalDetections} object(s) total.`,
+        ],
+        recommendedActions: [
+          sum.severity === "high"
+            ? "Dispatch collection crew within 24 hours; consider secondary collection route."
+            : sum.severity === "moderate"
+              ? "Schedule routine collection within 48 hours."
+              : "Include in next scheduled sweep; monitor for recurrence.",
+        ],
+        wasteTypes: sum.wasteTypes.length ? sum.wasteTypes : [{ label: "No waste objects", pct: 100 }],
+      };
+      setEngine("yolo");
+      setResult(analysis);
+      setAnnotated(drawBoxes(img, dets));
+    } catch (e) {
+      console.error("YOLO analysis failed, falling back to demo", e);
       const a = simulateAI(location, district, file?.name);
+      setEngine("demo");
       setResult(a);
+    } finally {
       setAnalyzing(false);
-    }, 1600);
+    }
   };
+
+  function drawBoxes(img: HTMLImageElement, dets: YoloDet[]): string {
+    const c = document.createElement("canvas");
+    c.width = img.naturalWidth;
+    c.height = img.naturalHeight;
+    const ctx = c.getContext("2d")!;
+    ctx.drawImage(img, 0, 0);
+    dets.forEach((d) => {
+      const isWaste = ["bottle", "cup", "backpack", "handbag", "suitcase", "sports ball", "kite", "book"].includes(d.label);
+      ctx.strokeStyle = isWaste ? "#f97316" : "rgba(148,163,184,0.7)";
+      ctx.lineWidth = isWaste ? 4 : 2;
+      ctx.strokeRect(d.x1, d.y1, d.x2 - d.x1, d.y2 - d.y1);
+      ctx.fillStyle = isWaste ? "rgba(249,115,22,0.95)" : "rgba(100,116,139,0.85)";
+      ctx.font = `bold ${Math.max(14, c.width / 60)}px sans-serif`;
+      ctx.fillText(`${d.label} ${(d.score * 100).toFixed(0)}%`, d.x1, Math.max(18, d.y1 - 6));
+    });
+    return c.toDataURL("image/jpeg", 0.85);
+  }
 
   const confirmDetection = () => {
     if (!result) return;
@@ -58,7 +112,7 @@ export default function DetectionPage() {
       lng: +lng,
       severity: result.severity,
       confidence: result.confidence,
-      aiClass: result.severity === "high" ? "severe_accumulation" : result.severity === "moderate" ? "moderate_accumulation" : "minor_litter",
+      aiClass: engine === "yolo" ? "yolo26n_object_detection" : result.severity === "high" ? "severe_accumulation" : result.severity === "moderate" ? "moderate_accumulation" : "minor_litter",
       source: "manual",
       observations: result.observations,
       recommendedAction: result.recommendedActions[0],
@@ -143,7 +197,9 @@ export default function DetectionPage() {
             {analyzing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
             {analyzing ? "Analyzing image…" : "Run AI Analysis"}
           </Button>
-          <p className="mt-2 text-center text-[10px] text-slate-400">Demo vision model — results are simulated.</p>
+          <p className="mt-2 text-center text-[10px] text-slate-400">
+            {engine === "yolo" ? "Powered by YOLO26n on-device inference." : "Demo heuristic fallback — YOLO model unavailable."}
+          </p>
         </Card>
 
         {/* Result */}
@@ -153,11 +209,14 @@ export default function DetectionPage() {
               <h3 className="flex items-center gap-2 text-sm font-bold text-slate-900">
                 <Sparkles className="h-4 w-4 text-emerald-600" /> AI Analysis Result
               </h3>
-              <SeverityBadge severity={result.severity} />
+              <div className="flex items-center gap-2">
+                <Badge tone={engine === "yolo" ? "purple" : "amber"}>{engine === "yolo" ? "YOLO26n" : "Demo AI"}</Badge>
+                <SeverityBadge severity={result.severity} />
+              </div>
             </div>
-            {preview && (
+            {(annotated || preview) && (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={preview} alt="analyzed" className="mb-3 max-h-40 w-full rounded-xl object-cover" />
+              <img src={annotated ?? preview!} alt="analyzed" className="mb-3 max-h-56 w-full rounded-xl object-cover" />
             )}
             <div className="grid grid-cols-2 gap-3">
               <div className="rounded-xl bg-slate-50 p-3 text-center">
