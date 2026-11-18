@@ -37,6 +37,7 @@ export interface WasteDetection {
   observations: string[];
   recommendedAction: string;
   imageLabel?: string;
+  imageUrl?: string;
   // Human-in-the-loop review metadata (set when an operator validates/rejects an AI detection)
   reviewedBy?: string;
   reviewedAt?: string;

@@ -395,6 +395,10 @@ export default function DetectionPage() {
                   You are overriding the AI suggestion — the original values are kept for audit.
                 </p>
               )}
+              {reviewing.imageUrl && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={reviewing.imageUrl} alt="report evidence" className="mb-3 h-28 w-full rounded-xl border border-slate-200 object-cover" />
+              )}
               <div className="mt-3">
                 <Label>Review note (optional)</Label>
                 <Input value={rvNote} onChange={(e) => setRvNote(e.target.value)} placeholder="e.g. Verified on-site via drone photo; severity lowered — pile is contained" />

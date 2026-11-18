@@ -13,7 +13,7 @@ const NEXT: Record<string, { label: string; to: CleaningTask["status"]; icon: Re
 };
 
 export default function RequestsPage() {
-  const { tasks, trucks, updateTaskStatus, uploadTaskEvidence, currentUser } = useStore();
+  const { tasks, trucks, detections, updateTaskStatus, uploadTaskEvidence, currentUser } = useStore();
   const [busy, setBusy] = useState<string | null>(null);
 
   // Requests = tasks dispatched by admin/operator and assigned to a truck.
@@ -26,6 +26,7 @@ export default function RequestsPage() {
     });
 
   const truckOf = (t: CleaningTask) => trucks.find((x) => x.id === t.truckId);
+  const detOf = (t: CleaningTask) => (t.detectionId ? detections.find((d) => d.id === t.detectionId) : undefined);
 
   const advance = (t: CleaningTask) => {
     const n = NEXT[t.status];

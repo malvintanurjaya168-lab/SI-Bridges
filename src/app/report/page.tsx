@@ -4,6 +4,7 @@ import React, { useRef, useState } from "react";
 import { Flag, Upload, Loader2, MapPin, Sparkles, CheckCircle2, LocateFixed } from "lucide-react";
 import { Card, Button, Input, Label, Select, Badge, SeverityBadge, DemoTag, cn } from "@/components/ui";
 import { useStore } from "@/lib/store";
+import { getSupabase } from "@/lib/supabase";
 import { AIAnalysis, Severity } from "@/lib/types";
 import { DISTRICTS } from "@/lib/geo";
 
@@ -86,8 +87,19 @@ export default function ReportPage() {
     return Object.keys(e).length === 0;
   };
 
-  const submit = () => {
+  const submit = async () => {
     if (!validate()) return;
+    // Upload citizen photo to Supabase Storage so staff can see the evidence
+    let imageUrl: string | undefined;
+    const sb = getSupabase();
+    if (file && sb) {
+      try {
+        const path = `reports/${crypto.randomUUID()}.jpg`;
+        const { error } = await sb.storage.from("detection-images").upload(path, file, { contentType: file.type || "image/jpeg", upsert: false });
+        if (!error) imageUrl = sb.storage.from("detection-images").getPublicUrl(path).data.publicUrl;
+      } catch { /* storage optional — report still submits */ }
+    }
+    if (!imageUrl && preview) imageUrl = preview; // demo mode: local object URL
     const det = addDetection({
       location: location.trim(),
       district,
@@ -106,6 +118,7 @@ export default function ReportPage() {
       ],
       recommendedAction: ai?.recommendedActions[0] ?? "Review report and dispatch collection crew if confirmed.",
       imageLabel: file?.name,
+      imageUrl,
     });
     setSubmitted(det.id);
   };
