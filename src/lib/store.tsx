@@ -83,6 +83,8 @@ interface Store extends AppState {
   acknowledgeAlert: (id: string) => void;
   resolveAlert: (id: string) => void;
   setTruckStatus: (id: string, status: Truck["status"]) => void;
+  setTruckGpsLive: (id: string, live: boolean) => void;
+  reportTruckPosition: (id: string, lat: number, lng: number, speedKmh?: number) => void;
   updateFacilityLoad: (id: string, deltaTons: number) => void;
   simulateAI: (location: string, district: string, imageName?: string) => AIAnalysis;
 }
@@ -137,6 +139,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [authBusy, setAuthBusy] = useState(false);
   const seq = useRef(1000);
   const supabase = getSupabase();
+  const gpsLive = useRef<Set<string>>(new Set());
+  const gpsWpBackup = useRef(new Map<string, { lat: number; lng: number }[]>());
 
   // ---------- data fetching (supabase) ----------
   const fetchAll = useCallback(async (sb: NonNullable<typeof supabase>) => {
@@ -221,7 +225,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setState((s) => ({
         ...s,
         trucks: s.trucks.map((tr) => {
-          if (tr.status !== "active" || tr.waypoints.length < 2) return tr;
+          if (tr.status !== "active" || tr.waypoints.length < 2 || gpsLive.current.has(tr.id)) return tr;
           const wp = tr.waypoints;
           const next = (tr.wpIndex + 1) % wp.length;
           const target = wp[next];
@@ -463,6 +467,47 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setTruckStatus: (id, status) => {
         setState((s) => ({ ...s, trucks: s.trucks.map((t) => (t.id === id ? { ...t, status, lastUpdate: new Date().toISOString() } : t)) }));
         if (sb) sb.from("trucks").update({ status, last_update: new Date().toISOString() }).eq("id", id).then(({ error }) => error && console.error(error));
+      },
+
+      setTruckGpsLive: (id, live) => {
+        const truck = state.trucks.find((t) => t.id === id);
+        if (live) {
+          gpsLive.current.add(id);
+          // Clear waypoints so simulated movement can't override real GPS — locally and in DB
+          if (truck && truck.waypoints.length > 0) {
+            gpsWpBackup.current.set(id, truck.waypoints);
+            setState((s) => ({ ...s, trucks: s.trucks.map((t) => (t.id === id ? { ...t, waypoints: [] } : t)) }));
+            if (sb) sb.from("trucks").update({ waypoints: [] }).eq("id", id).then(({ error }) => error && console.error(error));
+          }
+          // Force status active so the truck shows as moving
+          if (truck && truck.status !== "active") {
+            setState((s) => ({ ...s, trucks: s.trucks.map((t) => (t.id === id ? { ...t, status: "active" as const } : t)) }));
+            if (sb) sb.from("trucks").update({ status: "active" }).eq("id", id).then(({ error }) => error && console.error(error));
+          }
+        } else {
+          gpsLive.current.delete(id);
+          const wp = gpsWpBackup.current.get(id);
+          if (wp) {
+            gpsWpBackup.current.delete(id);
+            setState((s) => ({ ...s, trucks: s.trucks.map((t) => (t.id === id ? { ...t, waypoints: wp } : t)) }));
+            if (sb) sb.from("trucks").update({ waypoints: wp }).eq("id", id).then(({ error }) => error && console.error(error));
+          }
+        }
+      },
+
+      reportTruckPosition: (id, lat, lng, speedKmh) => {
+        const now = new Date().toISOString();
+        setState((s) => ({
+          ...s,
+          trucks: s.trucks.map((t) =>
+            t.id === id ? { ...t, lat, lng, speedKmh: speedKmh ?? t.speedKmh, lastUpdate: now } : t
+          ),
+        }));
+        if (sb) {
+          sb.from("trucks")
+            .upsert({ id, lat, lng, speed_kmh: speedKmh ?? undefined, last_update: now })
+            .then(({ error }) => error && console.error(error));
+        }
       },
 
       updateFacilityLoad: (id, deltaTons) => {

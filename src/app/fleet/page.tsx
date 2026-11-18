@@ -4,6 +4,7 @@ import React, { useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import { Truck, Activity, WifiOff, Wrench, Gauge, User } from "lucide-react";
 import { Card, StatCard, Badge, StatusBadge, Select, Input, DemoTag, timeAgo, fmtDate, cn } from "@/components/ui";
+import LiveGpsPanel from "@/components/LiveGpsPanel";
 import { useStore } from "@/lib/store";
 import type { TruckStatus } from "@/lib/types";
 
@@ -43,7 +44,7 @@ export default function FleetPage() {
           <DemoTag />
         </div>
         <p className="flex items-center gap-1.5 text-xs text-slate-500">
-          <span className="h-2 w-2 rounded-full bg-emerald-500 pulse-dot" /> GPS simulated — positions update live
+          <span className="h-2 w-2 rounded-full bg-emerald-500 pulse-dot" /> Simulated GPS — or live via the tracking panel
         </p>
       </div>
 
@@ -123,8 +124,9 @@ export default function FleetPage() {
           </div>
         </Card>
 
-        {/* Map */}
-        <div className="xl:col-span-2">
+        {/* Map + GPS */}
+        <div className="space-y-4 xl:col-span-2">
+          <LiveGpsPanel />
           <FleetMap />
         </div>
       </div>
