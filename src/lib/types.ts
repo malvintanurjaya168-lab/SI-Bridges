@@ -11,13 +11,7 @@ export type TruckStatus = "active" | "idle" | "offline" | "maintenance";
 export type FacilityType = "TPS" | "TPST" | "TPA";
 export type AlertStatus = "open" | "acknowledged" | "resolved";
 export type AlertSeverity = "critical" | "warning" | "info";
-export type UserRole =
-  | "admin"
-  | "monitoring_operator"
-  | "field_supervisor"
-  | "truck_operator"
-  | "analyst"
-  | "viewer";
+export type UserRole = "admin" | "truck_operator" | "user";
 export type DetectionSource = "truck_camera" | "cctv" | "citizen_report" | "manual" | "live_camera";
 export type FloodRisk = "low" | "moderate" | "high" | "insufficient";
 export type LayerKey =

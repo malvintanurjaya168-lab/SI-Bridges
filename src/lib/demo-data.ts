@@ -371,12 +371,9 @@ export function generateFloodZones(): FloodZone[] {
 }
 
 export const USERS: AppUser[] = [
-  { id: "USR-001", name: "Dr. Ratna Wijaya", role: "admin", email: "ratna@dlh.jakarta.go.id" },
-  { id: "USR-002", name: "Siti Rahayu", role: "monitoring_operator", email: "siti@dlh.jakarta.go.id" },
-  { id: "USR-003", name: "Andi Pratama", role: "field_supervisor", email: "andi@dlh.jakarta.go.id" },
-  { id: "USR-004", name: "Maya Kusuma", role: "analyst", email: "maya@dlh.jakarta.go.id" },
-  { id: "USR-005", name: "Joko Santoso", role: "truck_operator", email: "joko@operator.demo" },
-  { id: "USR-006", name: "Dewi Lestari", role: "viewer", email: "dewi@viewer.demo" },
+  { id: "USR-001", name: "Admin", role: "admin", email: "admin@gmail.com" },
+  { id: "USR-002", name: "Driver Demo", role: "truck_operator", email: "driver@gmail.com" },
+  { id: "USR-003", name: "Guest", role: "user", email: "guest@anonymous" },
 ];
 
 export function buildDemoState() {
@@ -433,9 +430,6 @@ export function simulateAIAnalysis(location: string, district: string, imageName
 
 export const ROLE_LABELS: Record<string, string> = {
   admin: "Administrator",
-  monitoring_operator: "Monitoring Operator",
-  field_supervisor: "Field Supervisor",
   truck_operator: "Truck Operator",
-  analyst: "Analyst",
-  viewer: "Viewer",
+  user: "User (Guest)",
 };

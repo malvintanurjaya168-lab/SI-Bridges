@@ -68,6 +68,7 @@ interface Store extends AppState {
   authBusy: boolean;
   login: (userId: string) => void;
   loginEmail: (email: string, password: string) => Promise<void>;
+  loginGuest: () => Promise<void>;
   logout: () => void;
   setUser: (id: string) => void;
   toggleLayer: (k: LayerKey) => void;
@@ -304,6 +305,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         const { error } = await sb.auth.signInWithPassword({ email, password });
         setAuthBusy(false);
         if (error) setAuthError(error.message);
+      },
+      loginGuest: async () => {
+        if (!sb) {
+          // Demo mode: sign in as the built-in guest user
+          const guest = state.users.find((u) => u.role === "user") ?? state.users[0];
+          if (guest) setState((s) => ({ ...s, currentUserId: guest.id, loggedIn: true }));
+          return;
+        }
+        setAuthBusy(true); setAuthError("");
+        const { error } = await sb.auth.signInAnonymously();
+        setAuthBusy(false);
+        if (error) setAuthError(error.message || "Anonymous sign-in is disabled. Enable it in Supabase → Authentication → Sign In / Providers → Anonymous.");
       },
       logout: () => {
         if (sb) sb.auth.signOut();

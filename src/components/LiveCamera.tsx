@@ -5,25 +5,6 @@ import { Camera, CameraOff, Loader2, Trash2, Package, Box, Sparkles, AlertTriang
 import { Button, SeverityBadge, cn } from "@/components/ui";
 import type { Severity } from "@/lib/types";
 
-// COCO-80 classes mapped to waste-relevant objects
-const WASTE_CLASSES = new Set([
-  "bottle", "cup", "backpack", "handbag", "suitcase", "sports ball", "kite", "book",
-]);
-
-const COCO_CLASSES = [
-  "person", "bicycle", "car", "motorcycle", "airplane", "bus", "train", "truck", "boat",
-  "traffic light", "fire hydrant", "stop sign", "parking meter", "bench", "bird", "cat",
-  "dog", "horse", "sheep", "cow", "elephant", "bear", "zebra", "giraffe", "backpack",
-  "umbrella", "handbag", "tie", "suitcase", "frisbee", "skis", "snowboard", "sports ball",
-  "kite", "baseball bat", "baseball glove", "skateboard", "surfboard", "tennis racket",
-  "bottle", "wine glass", "cup", "fork", "knife", "spoon", "bowl", "banana", "apple",
-  "sandwich", "orange", "broccoli", "carrot", "hot dog", "pizza", "donut", "cake",
-  "chair", "couch", "potted plant", "bed", "dining table", "toilet", "tv", "laptop",
-  "mouse", "remote", "keyboard", "cell phone", "microwave", "oven", "toaster", "sink",
-  "refrigerator", "book", "clock", "vase", "scissors", "teddy bear", "hair drier",
-  "toothbrush",
-];
-
 const INPUT_SIZE = 640;
 const NUM_DETS = 8400;
 
@@ -32,20 +13,10 @@ const WORLD_CLASSES = [
   "person", "garbage", "trash bag", "plastic bottle", "waste bin",
   "cardboard box", "food waste", "styrofoam", "construction debris", "plastic bag",
 ];
-const WASTE_WORLD = new Set(WORLD_CLASSES.filter((c) => c !== "person"));
+const WASTE_CLASSES = new Set(WORLD_CLASSES.filter((c) => c !== "person"));
 
-interface ModelCfg {
-  url: string;
-  classes: string[];
-  numClasses: number;
-  waste: Set<string>;
-  label: string;
-}
-
-const MODELS: Record<"world" | "coco", ModelCfg> = {
-  world: { url: "/models/yolov8s-worldv2.onnx", classes: WORLD_CLASSES, numClasses: WORLD_CLASSES.length, waste: WASTE_WORLD, label: "YOLO-Worldv2 (open-vocab)" },
-  coco: { url: "/models/yolo26n.onnx", classes: COCO_CLASSES, numClasses: 80, waste: WASTE_CLASSES, label: "YOLO26n (COCO-80)" },
-};
+const MODEL_URL = "/models/yolov8s-worldv2.onnx";
+const MODEL_LABEL = "YOLO-Worldv2 (open-vocab)";
 
 export interface LiveResult {
   severity: Severity;
@@ -100,9 +71,6 @@ export default function LiveCamera({ onResult }: Props) {
   const [live, setLive] = useState<LiveResult | null>(null);
   const [facing, setFacing] = useState<"environment" | "user">("environment");
   const [fps, setFps] = useState(0);
-  const [engine, setEngine] = useState<"world" | "coco">("world");
-  const cfgRef = useRef<ModelCfg>(MODELS.world);
-  const sessionCache = useRef(new Map<string, import("onnxruntime-web").InferenceSession>());
   const [aiBusy, setAiBusy] = useState(false);
   const [aiResult, setAiResult] = useState<any>(null);
   const [aiError, setAiError] = useState("");
@@ -123,20 +91,15 @@ export default function LiveCamera({ onResult }: Props) {
     try {
       const ort = await import("onnxruntime-web");
       ort.env.wasm.wasmPaths = "/ort/";
-      const cfg = MODELS[engine];
-      cfgRef.current = cfg;
-      let session = sessionCache.current.get(cfg.url);
-      if (!session) {
-        try {
-          session = await ort.InferenceSession.create(cfg.url, {
-            executionProviders: ["webgpu", "wasm"],
-          });
-        } catch {
-          session = await ort.InferenceSession.create(cfg.url, {
-            executionProviders: ["wasm"],
-          });
-        }
-        sessionCache.current.set(cfg.url, session);
+      let session;
+      try {
+        session = await ort.InferenceSession.create(MODEL_URL, {
+          executionProviders: ["webgpu", "wasm"],
+        });
+      } catch {
+        session = await ort.InferenceSession.create(MODEL_URL, {
+          executionProviders: ["wasm"],
+        });
       }
       sessionRef.current = session;
 
@@ -196,11 +159,10 @@ export default function LiveCamera({ onResult }: Props) {
             const data = (out.output0 ?? Object.values(out)[0]).data as Float32Array;
 
             // ---- decode [1,84,8400] ----
-            const cfg = cfgRef.current;
             const dets: RawDet[] = [];
             for (let i = 0; i < NUM_DETS; i++) {
               let best = -1, bestScore = 0.35;
-              for (let c = 0; c < cfg.numClasses; c++) {
+              for (let c = 0; c < WORLD_CLASSES.length; c++) {
                 const s = data[(4 + c) * NUM_DETS + i];
                 if (s > bestScore) { bestScore = s; best = c; }
               }
@@ -225,8 +187,8 @@ export default function LiveCamera({ onResult }: Props) {
               const wasteObjs: { label: string; score: number }[] = [];
               const allObjs: string[] = [];
               for (const d of kept) {
-                const label = cfg.classes[d.cls] ?? `cls${d.cls}`;
-                const isWaste = cfg.waste.has(label);
+                const label = WORLD_CLASSES[d.cls] ?? `cls${d.cls}`;
+                const isWaste = WASTE_CLASSES.has(label);
                 const bx = d.x1 * scaleX, by = d.y1 * scaleY, bw = (d.x2 - d.x1) * scaleX, bh = (d.y2 - d.y1) * scaleY;
                 ctx.strokeStyle = isWaste ? "#f97316" : "rgba(148,163,184,0.5)";
                 ctx.lineWidth = isWaste ? 2.5 : 1.2;
@@ -273,7 +235,7 @@ export default function LiveCamera({ onResult }: Props) {
       setPhase("error");
       stop();
     }
-  }, [facing, engine, stop]);
+  }, [facing, stop]);
 
   useEffect(() => stop, [stop]);
 
@@ -322,7 +284,7 @@ export default function LiveCamera({ onResult }: Props) {
               <>
                 <Loader2 className="h-8 w-8 animate-spin text-emerald-400" />
                 <p className="mt-3 text-sm font-semibold text-white">
-                  {phase === "loading_model" ? `Loading ${MODELS[engine].label}…` : "Requesting camera…"}
+                  {phase === "loading_model" ? `Loading ${MODEL_LABEL}…` : "Requesting camera…"}
                 </p>
                 <p className="mt-1 text-xs text-slate-400">
                   {phase === "loading_model" ? "Compiling ONNX model (first run may take a moment)" : "Allow camera access when prompted"}
@@ -373,21 +335,7 @@ export default function LiveCamera({ onResult }: Props) {
       </div>
 
       {phase !== "running" && phase !== "loading_model" && phase !== "requesting_camera" && (
-        <div className="flex flex-col items-center gap-2">
-          <div className="flex rounded-xl border border-slate-200 bg-white p-1 text-xs">
-            {(Object.keys(MODELS) as ("world" | "coco")[]).map((k) => (
-              <button
-                key={k}
-                onClick={() => setEngine(k)}
-                className={cn(
-                  "rounded-lg px-3 py-1.5 font-semibold transition",
-                  engine === k ? "bg-teal-600 text-white" : "text-slate-500 hover:bg-slate-100"
-                )}
-              >
-                {k === "world" ? "Waste vocab (YOLO-World)" : "COCO-80 (YOLO26n)"}
-              </button>
-            ))}
-          </div>
+        <div className="flex justify-center">
           <Button onClick={start}>
             <Camera className="h-4 w-4" />
             {phase === "error" ? "Retry" : "Start Camera Detection"}
@@ -435,10 +383,9 @@ export default function LiveCamera({ onResult }: Props) {
       )}
 
       <p className="text-[10px] leading-relaxed text-slate-400">
-        <strong>{MODELS[engine].label}</strong> runs locally via ONNX Runtime.
-        {engine === "world"
-          ? " Open-vocabulary classes: garbage, trash bag, plastic bottle, waste bin, cardboard box, food waste, Styrofoam, construction debris, plastic bag."
-          : " COCO-80 classes; waste-relevant objects (bottles, cups, bags, boxes) map to accumulation severity."}{" "}
+        <strong>{MODEL_LABEL}</strong> runs locally via ONNX Runtime.
+        Open-vocabulary classes: garbage, trash bag, plastic bottle, waste bin, cardboard box,
+        food waste, Styrofoam, construction debris, plastic bag, person.{" "}
         The <strong>Analyze</strong> button
         captures the current frame and sends it to Gemini vision for richer scene-level classification (garbage piles, waste types).
         Results are indicative only — verify before dispatching crews.

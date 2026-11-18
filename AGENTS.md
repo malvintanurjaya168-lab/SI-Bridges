@@ -18,7 +18,7 @@ npm run build # production build
 - `src/lib/supabase.ts`, `src/lib/supabase-mappers.ts` — Supabase client + row mappers
 - `src/lib/geo.ts` — district constants
 - `src/components/` — AppShell (sidebar/topbar/login), JakartaMap, FleetMap, FacilitiesMap, FloodMap, LiveCamera, ui primitives
-- `/camera` page — real-time webcam detection via YOLO26n ONNX (`public/models/yolo26n.onnx`, ~9.4MB bundled) + onnxruntime-web; ORT wasm/mjs assets served from `public/ort/`. COCO-80 classes; waste-relevant classes map to severity
+- `/camera` page — real-time webcam detection via YOLO-Worldv2 ONNX (`public/models/yolov8s-worldv2.onnx`, ~49MB bundled, open-vocabulary waste classes) + onnxruntime-web; ORT wasm/mjs assets served from `public/ort/`. Plus an Analyze button that sends a captured frame to `/api/analyze` (Gemini vision) for scene-level classification
 - `src/app/` — routes: `/overview` `/map` `/detection` `/camera` `/fleet` `/operations` `/facilities` `/flood` `/analytics` `/alerts` `/settings`
 - `supabase/schema.sql` — Postgres schema + RLS + realtime publication
 
@@ -36,4 +36,4 @@ Set env vars (see Settings → System): `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC
 
 ## Exporting a new detection model
 
-`python -c "from ultralytics import YOLO; YOLO('yolo26n.pt').export(format='onnx', imgsz=640, opset=17)"` → place `.onnx` in `public/models/`; ORT assets already in `public/ort/`.
+`python -c "from ultralytics import YOLOWorld; m=YOLOWorld('yolov8s-worldv2.pt'); m.set_classes([...]); m.export(format='onnx', imgsz=640, opset=17)"` → place `.onnx` in `public/models/`; ORT assets already in `public/ort/`. Class order in `LiveCamera.tsx` `WORLD_CLASSES` must match `set_classes()` order.

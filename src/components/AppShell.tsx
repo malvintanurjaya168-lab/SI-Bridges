@@ -41,7 +41,7 @@ const NAV = [
 ];
 
 function LoginScreen() {
-  const { users, login, mode, loginEmail, authError, authBusy } = useStore();
+  const { users, login, mode, loginEmail, loginGuest, authError, authBusy } = useStore();
   const [sel, setSel] = useState(users[1]?.id ?? users[0]?.id);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -102,6 +102,15 @@ function LoginScreen() {
                   {authBusy ? "Signing in…" : "Sign In"}
                 </button>
               </form>
+              <div className="my-4 flex items-center gap-3 text-[10px] uppercase tracking-wider text-slate-400">
+                <span className="h-px flex-1 bg-slate-200" /> or <span className="h-px flex-1 bg-slate-200" />
+              </div>
+              <button
+                onClick={loginGuest} disabled={authBusy}
+                className="w-full rounded-xl border border-slate-300 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-50"
+              >
+                Continue as Guest — no account needed
+              </button>
             </>
           ) : (
             <>
@@ -132,6 +141,12 @@ function LoginScreen() {
                 className="mt-4 w-full rounded-xl bg-emerald-600 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700 transition"
               >
                 Enter Dashboard
+              </button>
+              <button
+                onClick={loginGuest}
+                className="mt-2 w-full rounded-xl border border-slate-300 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+              >
+                Continue as Guest — no account needed
               </button>
             </>
           )}

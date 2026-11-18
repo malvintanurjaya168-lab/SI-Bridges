@@ -16,14 +16,14 @@ create type alert_severity as enum ('critical', 'warning', 'info');
 create type alert_status as enum ('open', 'acknowledged', 'resolved');
 create type detection_source as enum ('truck_camera', 'cctv', 'citizen_report', 'manual', 'live_camera');
 create type flood_risk as enum ('low', 'moderate', 'high', 'insufficient');
-create type app_role as enum ('admin', 'monitoring_operator', 'field_supervisor', 'truck_operator', 'analyst', 'viewer');
+create type app_role as enum ('admin', 'truck_operator', 'user');
 
 -- ---------- PROFILES (extends auth.users) ----------
 create table public.profiles (
   id uuid primary key references auth.users(id) on delete cascade,
   name text not null,
-  email text not null,
-  role app_role not null default 'viewer',
+  email text,
+  role app_role not null default 'user',
   created_at timestamptz not null default now()
 );
 
@@ -34,9 +34,9 @@ begin
   insert into public.profiles (id, name, email, role)
   values (
     new.id,
-    coalesce(new.raw_user_meta_data->>'name', split_part(new.email, '@', 1)),
-    new.email,
-    coalesce((new.raw_user_meta_data->>'role')::app_role, 'viewer')
+    coalesce(new.raw_user_meta_data->>'name', nullif(split_part(coalesce(new.email, ''), '@', 1), ''), 'Guest'),
+    coalesce(new.email, ''),
+    coalesce((new.raw_user_meta_data->>'role')::app_role, 'user')
   );
   return new;
 end $$;
@@ -202,7 +202,7 @@ create or replace function public.is_staff()
 returns boolean language sql stable security definer set search_path = public as $$
   select exists (
     select 1 from public.profiles
-    where id = auth.uid() and role <> 'viewer'
+    where id = auth.uid() and role in ('admin', 'truck_operator')
   );
 $$;
 
