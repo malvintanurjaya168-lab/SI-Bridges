@@ -26,18 +26,19 @@ import { cn } from "@/components/ui";
 import { useStore } from "@/lib/store";
 import { ROLE_LABELS } from "@/lib/demo-data";
 
-const NAV = [
+// roles: which roles can see each nav item. Omitted = all roles.
+const NAV: { href: string; label: string; icon: React.ComponentType<{ className?: string }>; roles?: string[] }[] = [
   { href: "/overview", label: "Overview", icon: LayoutDashboard },
   { href: "/map", label: "GIS Monitoring", icon: Map },
-  { href: "/detection", label: "AI Detection", icon: ScanSearch },
+  { href: "/detection", label: "AI Detection", icon: ScanSearch, roles: ["admin", "truck_operator"] },
   { href: "/report", label: "Report Waste", icon: Flag },
-  { href: "/camera", label: "Live Camera", icon: Camera },
-  { href: "/fleet", label: "Fleet Monitoring", icon: Truck },
-  { href: "/operations", label: "Operations", icon: ClipboardList },
-  { href: "/facilities", label: "Facilities", icon: Factory },
-  { href: "/analytics", label: "Analytics", icon: BarChart3 },
+  { href: "/camera", label: "Live Camera", icon: Camera, roles: ["admin", "truck_operator"] },
+  { href: "/fleet", label: "Fleet Monitoring", icon: Truck, roles: ["admin", "truck_operator"] },
+  { href: "/operations", label: "Operations", icon: ClipboardList, roles: ["admin", "truck_operator"] },
+  { href: "/facilities", label: "Facilities", icon: Factory, roles: ["admin", "truck_operator"] },
+  { href: "/analytics", label: "Analytics", icon: BarChart3, roles: ["admin", "truck_operator"] },
   { href: "/alerts", label: "Alerts", icon: Bell },
-  { href: "/settings", label: "Data & Users", icon: Settings },
+  { href: "/settings", label: "Data & Users", icon: Settings, roles: ["admin"] },
 ];
 
 function LoginScreen() {
@@ -167,6 +168,8 @@ function Shell({ children }: { children: React.ReactNode }) {
   const [userMenu, setUserMenu] = useState(false);
   const openAlerts = alerts.filter((a) => a.status !== "resolved").length;
   const router = useRouter();
+  const allowedHrefs = NAV.filter((item) => !item.roles || item.roles.includes(currentUser?.role ?? "")).map((n) => n.href);
+  const routeAllowed = allowedHrefs.some((h) => pathname.startsWith(h));
 
   useEffect(() => setMobileOpen(false), [pathname]);
 
@@ -184,7 +187,7 @@ function Shell({ children }: { children: React.ReactNode }) {
         )}
       </div>
       <nav className="flex-1 space-y-1 overflow-y-auto px-3 pb-4">
-        {NAV.map((item) => {
+        {NAV.filter((item) => !item.roles || item.roles.includes(currentUser?.role ?? "")).map((item) => {
           const active = pathname.startsWith(item.href);
           const Icon = item.icon;
           return (
@@ -301,7 +304,17 @@ function Shell({ children }: { children: React.ReactNode }) {
             )}
           </div>
         </header>
-        <main className="flex-1 overflow-y-auto p-4 sm:p-6">{children}</main>
+        <main className="flex-1 overflow-y-auto p-4 sm:p-6">
+          {routeAllowed ? children : (
+            <div className="flex h-full flex-col items-center justify-center text-center">
+              <p className="text-lg font-bold text-slate-800">Access restricted</p>
+              <p className="mt-1 text-sm text-slate-500">Your role ({ROLE_LABELS[currentUser.role]}) doesn&apos;t have access to this page.</p>
+              <button onClick={() => router.push("/overview")} className="mt-4 rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700">
+                Back to Overview
+              </button>
+            </div>
+          )}
+        </main>
       </div>
     </div>
   );
