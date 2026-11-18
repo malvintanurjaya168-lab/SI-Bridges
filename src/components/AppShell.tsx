@@ -21,6 +21,7 @@ import {
   LogOut,
   UserCircle,
   Flag,
+  Sparkles,
 } from "lucide-react";
 import { cn } from "@/components/ui";
 import { useStore } from "@/lib/store";
@@ -33,13 +34,14 @@ import { ROLE_LABELS } from "@/lib/demo-data";
 const NAV: { href: string; label: string; icon: React.ComponentType<{ className?: string }>; roles?: string[] }[] = [
   { href: "/overview", label: "Overview", icon: LayoutDashboard, roles: ["admin", "truck_operator"] },
   { href: "/report", label: "Report Waste", icon: Flag },
+  { href: "/cleaned", label: "Cleaned Areas", icon: Sparkles },
   { href: "/map", label: "GIS Monitoring", icon: Map, roles: ["admin", "truck_operator"] },
   { href: "/detection", label: "AI Detection", icon: ScanSearch, roles: ["admin", "truck_operator"] },
   { href: "/camera", label: "Live Camera", icon: Camera, roles: ["admin", "truck_operator"] },
   { href: "/fleet", label: "Fleet Monitoring", icon: Truck, roles: ["admin", "truck_operator"] },
   { href: "/operations", label: "Operations", icon: ClipboardList, roles: ["admin", "truck_operator"] },
-  { href: "/facilities", label: "Facilities", icon: Factory, roles: ["admin", "truck_operator"] },
-  { href: "/analytics", label: "Analytics", icon: BarChart3, roles: ["admin", "truck_operator"] },
+  { href: "/facilities", label: "Facilities", icon: Factory, roles: ["admin"] },
+  { href: "/analytics", label: "Analytics", icon: BarChart3, roles: ["admin"] },
   { href: "/alerts", label: "Alerts", icon: Bell, roles: ["admin", "truck_operator"] },
   { href: "/settings", label: "Data & Users", icon: Settings, roles: ["admin"] },
 ];
