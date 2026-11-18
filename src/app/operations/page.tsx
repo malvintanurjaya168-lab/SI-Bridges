@@ -18,6 +18,7 @@ const NEXT_LABEL: Record<TaskStatus, string> = {
 
 export default function OperationsPage() {
   const { tasks, detections, trucks, createTaskFromDetection, updateTaskStatus, assignTask, uploadTaskEvidence, verifyTask, currentUser } = useStore();
+  const canAssign = currentUser?.role === "admin";
   const [q, setQ] = useState("");
   const [statusF, setStatusF] = useState("all");
   const [priF, setPriF] = useState("all");
@@ -96,8 +97,8 @@ export default function OperationsPage() {
               </Select>
             </div>
             <div>
-              <Label>Assign truck (optional)</Label>
-              <Select value={selTruck} onChange={(e) => setSelTruck(e.target.value)}>
+              <Label>Assign truck (optional){!canAssign && " — admin only"}</Label>
+              <Select value={selTruck} onChange={(e) => setSelTruck(e.target.value)} disabled={!canAssign}>
                 <option value="">Unassigned</option>
                 {trucks.filter((t) => t.status === "active" || t.status === "idle").map((t) => (
                   <option key={t.id} value={t.id}>{t.plate} — {t.team}</option>
@@ -166,7 +167,7 @@ export default function OperationsPage() {
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
                     {/* assign */}
-                    {t.status === "pending" && (
+                    {t.status === "pending" && canAssign && (
                       <Select
                         className="w-40 !py-1.5 text-xs"
                         value={t.truckId ?? ""}
