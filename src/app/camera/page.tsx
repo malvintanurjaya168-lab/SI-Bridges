@@ -6,6 +6,7 @@ import Link from "next/link";
 import { MapPin, ClipboardList, CheckCircle2, ArrowRight } from "lucide-react";
 import { Card, Button, Input, Label, Select, DemoTag, Badge, SeverityBadge, cn } from "@/components/ui";
 import { useStore } from "@/lib/store";
+import GpsButton from "@/components/GpsButton";
 import { DISTRICTS } from "@/lib/geo";
 import type { LiveResult } from "@/components/LiveCamera";
 
@@ -104,6 +105,10 @@ export default function CameraPage() {
                 {errors.lng && <p className="mt-1 text-xs text-red-500">{errors.lng}</p>}
               </div>
             </div>
+            <GpsButton
+              className="mt-2"
+              onFix={(la, ln) => { setLat(la.toFixed(5)); setLng(ln.toFixed(5)); }}
+            />
           </div>
 
           {/* Live readout */}

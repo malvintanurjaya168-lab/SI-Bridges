@@ -4,6 +4,7 @@ import React, { useRef, useState } from "react";
 import { Flag, Upload, Loader2, MapPin, Sparkles, CheckCircle2, LocateFixed } from "lucide-react";
 import { Card, Button, Input, Label, Select, Badge, SeverityBadge, DemoTag, cn } from "@/components/ui";
 import { useStore } from "@/lib/store";
+import GpsButton from "@/components/GpsButton";
 import { getSupabase } from "@/lib/supabase";
 import { AIAnalysis, Severity } from "@/lib/types";
 import { DISTRICTS } from "@/lib/geo";
@@ -20,7 +21,6 @@ export default function ReportPage() {
   const [lng, setLng] = useState("");
   const [notes, setNotes] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [locating, setLocating] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
   const [ai, setAi] = useState<(AIAnalysis & { engine: string }) | null>(null);
   const [submitted, setSubmitted] = useState<string | null>(null);
@@ -29,19 +29,6 @@ export default function ReportPage() {
     setFile(f);
     setPreview(f ? URL.createObjectURL(f) : null);
     setAi(null);
-  };
-
-  const useMyLocation = () => {
-    if (!navigator.geolocation) { setErrors((e) => ({ ...e, lat: "Geolocation not supported." })); return; }
-    setLocating(true);
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setLat(pos.coords.latitude.toFixed(5));
-        setLng(pos.coords.longitude.toFixed(5));
-        setLocating(false);
-      },
-      () => { setErrors((e) => ({ ...e, lat: "Location permission denied." })); setLocating(false); }
-    );
   };
 
   const analyzePhoto = async () => {
@@ -207,10 +194,7 @@ export default function ReportPage() {
               </Select>
             </div>
             <div className="flex items-end">
-              <Button type="button" variant="secondary" size="sm" onClick={useMyLocation} disabled={locating} className="w-full">
-                {locating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <LocateFixed className="h-3.5 w-3.5" />}
-                Use my GPS location
-              </Button>
+              <GpsButton onFix={(la, ln) => { setLat(la.toFixed(5)); setLng(ln.toFixed(5)); setErrors((e) => ({ ...e, lat: "", lng: "" })); }} />
             </div>
           </div>
 

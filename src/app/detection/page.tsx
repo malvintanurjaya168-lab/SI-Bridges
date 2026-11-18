@@ -4,6 +4,7 @@ import React, { useRef, useState } from "react";
 import { Upload, Image as ImageIcon, Loader2, CheckCircle2, XCircle, ClipboardList, Sparkles, AlertTriangle, UserCheck, ShieldAlert } from "lucide-react";
 import { Card, Button, Input, Label, Select, Badge, SeverityBadge, StatusBadge, DemoTag, fmtDate, cn, EmptyState } from "@/components/ui";
 import { useStore } from "@/lib/store";
+import GpsButton from "@/components/GpsButton";
 import { AIAnalysis, Severity, WasteDetection } from "@/lib/types";
 import { DISTRICTS } from "@/lib/geo";
 
@@ -200,6 +201,10 @@ export default function DetectionPage() {
                 {errors.lng && <p className="mt-1 text-xs text-red-500">{errors.lng}</p>}
               </div>
             </div>
+            <GpsButton
+              className="mt-2"
+              onFix={(la, ln) => { setLat(la.toFixed(5)); setLng(ln.toFixed(5)); }}
+            />
           </div>
 
           <Button onClick={runAnalysis} disabled={analyzing} className="mt-4 w-full">
