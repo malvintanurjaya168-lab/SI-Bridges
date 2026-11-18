@@ -22,6 +22,7 @@ import {
   UserCircle,
   Flag,
   Sparkles,
+  ListChecks,
 } from "lucide-react";
 import { cn } from "@/components/ui";
 import { useStore } from "@/lib/store";
@@ -40,6 +41,7 @@ const NAV: { href: string; label: string; icon: React.ComponentType<{ className?
   { href: "/camera", label: "Live Camera", icon: Camera, roles: ["admin", "truck_operator"] },
   { href: "/fleet", label: "Fleet Monitoring", icon: Truck, roles: ["admin", "truck_operator"] },
   { href: "/operations", label: "Operations", icon: ClipboardList, roles: ["admin", "truck_operator"] },
+  { href: "/requests", label: "Cleaning Requests", icon: ListChecks, roles: ["truck_operator"] },
   { href: "/facilities", label: "Facilities", icon: Factory, roles: ["admin"] },
   { href: "/analytics", label: "Analytics", icon: BarChart3, roles: ["admin"] },
   { href: "/alerts", label: "Alerts", icon: Bell, roles: ["admin", "truck_operator"] },

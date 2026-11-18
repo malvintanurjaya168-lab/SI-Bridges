@@ -11,7 +11,8 @@ import type { TruckStatus } from "@/lib/types";
 const FleetMap = dynamic(() => import("@/components/FleetMap"), { ssr: false });
 
 export default function FleetPage() {
-  const { trucks, setTruckStatus, deliveries, facilities } = useStore();
+  const { trucks, setTruckStatus, deliveries, facilities, currentUser } = useStore();
+  const canEditFleet = currentUser?.role === "admin";
   const [q, setQ] = useState("");
   const [statusF, setStatusF] = useState("all");
 
@@ -97,16 +98,20 @@ export default function FleetPage() {
                     <td className="px-3 py-2.5 text-slate-500">{timeAgo(t.lastUpdate)}</td>
                     <td className="px-4 py-2.5">
                       <div className="flex justify-end">
-                        <Select
-                          value={t.status}
-                          onChange={(e) => setTruckStatus(t.id, e.target.value as TruckStatus)}
-                          className="w-32 !py-1 text-[11px]"
-                        >
-                          <option value="active">Active</option>
-                          <option value="idle">Idle</option>
-                          <option value="offline">Offline</option>
-                          <option value="maintenance">Maintenance</option>
-                        </Select>
+                        {canEditFleet ? (
+                          <Select
+                            value={t.status}
+                            onChange={(e) => setTruckStatus(t.id, e.target.value as TruckStatus)}
+                            className="w-32 !py-1 text-[11px]"
+                          >
+                            <option value="active">Active</option>
+                            <option value="idle">Idle</option>
+                            <option value="offline">Offline</option>
+                            <option value="maintenance">Maintenance</option>
+                          </Select>
+                        ) : (
+                          <StatusBadge status={t.status} />
+                        )}
                       </div>
                     </td>
                   </tr>
