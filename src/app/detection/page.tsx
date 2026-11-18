@@ -9,6 +9,7 @@ import { DISTRICTS } from "@/lib/geo";
 
 export default function DetectionPage() {
   const { addDetection, reviewDetection, createTaskFromDetection, detections, trucks, simulateAI, currentUser } = useStore();
+  const canReview = currentUser?.role === "admin" || currentUser?.role === "truck_operator";
   const fileRef = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
@@ -331,10 +332,10 @@ export default function DetectionPage() {
                     </td>
                     <td className="px-5 py-2.5">
                       <div className="flex justify-end gap-1">
-                        {d.status === "new" && (
+                        {d.status === "new" && canReview && (
                           <button onClick={() => openReview(d)} title="Human review" className="rounded-lg p-1.5 text-blue-600 hover:bg-blue-50"><UserCheck className="h-4 w-4" /></button>
                         )}
-                        {d.status === "verified" && (
+                        {d.status === "verified" && canReview && (
                           <button
                             onClick={() => { const t = createTaskFromDetection(d.id); setTaskMsg(t ? `Task ${t.id} created.` : ""); }}
                             title="Create task"

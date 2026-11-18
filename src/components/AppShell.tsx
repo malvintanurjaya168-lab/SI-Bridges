@@ -20,6 +20,7 @@ import {
   ChevronLeft,
   LogOut,
   UserCircle,
+  Flag,
 } from "lucide-react";
 import { cn } from "@/components/ui";
 import { useStore } from "@/lib/store";
@@ -29,6 +30,7 @@ const NAV = [
   { href: "/overview", label: "Overview", icon: LayoutDashboard },
   { href: "/map", label: "GIS Monitoring", icon: Map },
   { href: "/detection", label: "AI Detection", icon: ScanSearch },
+  { href: "/report", label: "Report Waste", icon: Flag },
   { href: "/camera", label: "Live Camera", icon: Camera },
   { href: "/fleet", label: "Fleet Monitoring", icon: Truck },
   { href: "/operations", label: "Operations", icon: ClipboardList },
