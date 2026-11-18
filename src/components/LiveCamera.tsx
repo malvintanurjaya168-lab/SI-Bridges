@@ -16,6 +16,7 @@ export interface LiveResult {
   totalDetections: number;
   confidence: number;
   objects: { label: string; score: number }[];
+  allObjects: string[];
   timestamp: number;
 }
 
@@ -59,7 +60,7 @@ export default function LiveCamera({ onResult }: Props) {
       const cocoSsd = await import("@tensorflow-models/coco-ssd");
       const tf = await import("@tensorflow/tfjs");
       await tf.ready();
-      const model = await cocoSsd.load({ base: "lite_mobilenet_v2" });
+      const model = await cocoSsd.load({ base: "mobilenet_v2" });
       modelRef.current = model;
 
       setPhase("requesting_camera");
@@ -93,17 +94,19 @@ export default function LiveCamera({ onResult }: Props) {
               if (ctx) {
                 ctx.clearRect(0, 0, c.width, c.height);
                 const wasteObjs: { label: string; score: number; bbox: number[] }[] = [];
+                const allObjs: string[] = [];
                 preds.forEach((p) => {
                   const isWaste = WASTE_CLASSES.has(p.class);
                   const [y, x, h, w] = p.bbox;
                   const bx = x * scaleX, by = y * scaleY, bw = w * scaleX, bh = h * scaleY;
-                  ctx.strokeStyle = isWaste ? "#f97316" : "rgba(148,163,184,0.4)";
-                  ctx.lineWidth = isWaste ? 2.5 : 1;
+                  ctx.strokeStyle = isWaste ? "#f97316" : "rgba(148,163,184,0.5)";
+                  ctx.lineWidth = isWaste ? 2.5 : 1.2;
                   ctx.strokeRect(bx, by, bw, bh);
+                  ctx.fillStyle = isWaste ? "rgba(249,115,22,0.95)" : "rgba(100,116,139,0.8)";
+                  ctx.font = "600 11px sans-serif";
+                  ctx.fillText(`${p.class} ${(p.score * 100).toFixed(0)}%`, bx, Math.max(12, by - 4));
+                  allObjs.push(p.class);
                   if (isWaste) {
-                    ctx.fillStyle = "rgba(249,115,22,0.9)";
-                    ctx.font = "600 11px sans-serif";
-                    ctx.fillText(`${p.class} ${(p.score * 100).toFixed(0)}%`, bx, Math.max(12, by - 4));
                     wasteObjs.push({ label: p.class, score: p.score, bbox: p.bbox });
                   }
                 });
@@ -117,6 +120,7 @@ export default function LiveCamera({ onResult }: Props) {
                   totalDetections: preds.length,
                   confidence: Math.round(avgScore * 100),
                   objects: wasteObjs.map((o) => ({ label: o.label, score: o.score })).slice(0, 8),
+                  allObjects: [...new Set(allObjs)].slice(0, 10),
                   timestamp: Date.now(),
                 };
                 setLive(res);
@@ -195,8 +199,11 @@ export default function LiveCamera({ onResult }: Props) {
             <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between">
               <div className="rounded-xl bg-black/60 px-3 py-1.5 text-[11px] text-white backdrop-blur">
                 Waste objects: <span className="font-bold text-orange-400">{live?.wasteCount ?? 0}</span>
-                {live && live.objects.length > 0 && (
-                  <span className="ml-2 text-slate-300">({live.objects.map((o) => o.label).join(", ")})</span>
+                {live && live.allObjects.length > 0 && (
+                  <span className="ml-2 text-slate-300">seen: {live.allObjects.join(", ")}</span>
+                )}
+                {live && live.allObjects.length === 0 && (
+                  <span className="ml-2 text-slate-400">no objects in frame — try better lighting or move closer</span>
                 )}
               </div>
               <div className="flex gap-2">
