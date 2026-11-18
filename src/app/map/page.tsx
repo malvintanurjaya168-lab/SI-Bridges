@@ -16,7 +16,6 @@ const LAYER_LABELS: { key: LayerKey; label: string }[] = [
   { key: "tps", label: "TPS" },
   { key: "tpst", label: "TPST" },
   { key: "tpa", label: "TPA" },
-  { key: "flood", label: "Flood-Prone Areas" },
   { key: "rivers", label: "Rivers & Waterways" },
 ];
 
@@ -74,7 +73,7 @@ export default function MapPage() {
             </div>
             <div className="mt-auto border-t border-slate-100 pt-3">
               <p className="text-[10px] leading-relaxed text-slate-400">
-                Basemap: OpenStreetMap. Positions & flood zones are synthetic demo data.
+                Basemap: OpenStreetMap. Positions are synthetic demo data.
               </p>
             </div>
           </Card>

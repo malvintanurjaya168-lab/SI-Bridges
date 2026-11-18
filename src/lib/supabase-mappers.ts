@@ -5,7 +5,6 @@ import {
   CleaningTask,
   Delivery,
   Facility,
-  FloodZone,
   TaskStatus,
   Truck,
   UserRole,
@@ -30,6 +29,11 @@ export function rowToDetection(r: any): WasteDetection {
     observations: r.observations ?? [],
     recommendedAction: r.recommended_action ?? "",
     imageLabel: r.image_label ?? undefined,
+    reviewedBy: r.reviewed_by_name ?? undefined,
+    reviewedAt: r.reviewed_at ?? undefined,
+    reviewNote: r.review_note ?? undefined,
+    aiSeverity: r.ai_severity ?? undefined,
+    aiConfidence: r.ai_confidence ?? undefined,
   };
 }
 
@@ -117,19 +121,6 @@ export function rowToAlert(r: any): Alert {
   };
 }
 
-export function rowToFloodZone(r: any): FloodZone {
-  return {
-    id: r.id,
-    name: r.name,
-    district: r.district ?? "",
-    lat: r.lat,
-    lng: r.lng,
-    risk: r.risk,
-    score: r.score,
-    factors: r.factors ?? [],
-    recommendations: r.recommendations ?? [],
-  };
-}
 
 export function rowToUser(r: any): AppUser {
   return { id: r.id, name: r.name, email: r.email, role: r.role as UserRole };
@@ -154,6 +145,10 @@ export function detectionToRow(d: WasteDetection, userId?: string) {
     image_label: d.imageLabel ?? null,
     detected_at: d.detectedAt,
     verified_by: userId ?? null,
+    reviewed_at: d.reviewedAt ?? null,
+    review_note: d.reviewNote ?? null,
+    ai_severity: d.aiSeverity ?? null,
+    ai_confidence: d.aiConfidence ?? null,
   };
 }
 
@@ -236,18 +231,5 @@ export function alertToRow(a: Alert) {
   };
 }
 
-export function floodZoneToRow(f: FloodZone) {
-  return {
-    id: f.id,
-    name: f.name,
-    district: f.district,
-    lat: f.lat,
-    lng: f.lng,
-    risk: f.risk,
-    score: f.score,
-    factors: f.factors,
-    recommendations: f.recommendations,
-  };
-}
 
 export type { AIAnalysis };

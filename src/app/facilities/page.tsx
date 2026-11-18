@@ -10,7 +10,7 @@ import { FacilityType } from "@/lib/types";
 const FacilitiesMap = dynamic(() => import("@/components/FacilitiesMap"), { ssr: false });
 
 export default function FacilitiesPage() {
-  const { facilities, deliveries, trucks, addDelivery, updateFacilityLoad } = useStore();
+  const { facilities, deliveries, trucks, addDelivery } = useStore();
   const [typeF, setTypeF] = useState<"all" | FacilityType>("all");
   const [truckId, setTruckId] = useState("");
   const [facilityId, setFacilityId] = useState("");
@@ -36,7 +36,6 @@ export default function FacilitiesPage() {
     setTruckId(""); setFacilityId(""); setWeight("2000");
   };
 
-  const utilization = (f: (typeof facilities)[number]) => Math.round((f.currentLoadTons / f.capacityTons) * 100);
 
   return (
     <div className="space-y-5">
@@ -58,12 +57,12 @@ export default function FacilitiesPage() {
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         {(["TPS", "TPST", "TPA"] as FacilityType[]).map((t) => {
           const list = byType[t];
-          const avg = Math.round(list.reduce((a, f) => a + utilization(f), 0) / Math.max(list.length, 1));
+          const operational = list.filter((f) => f.status === "operational").length;
           return (
             <Card key={t} className="p-4">
               <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">{t} Facilities</p>
               <p className="mt-1 text-2xl font-bold text-slate-900">{list.length}</p>
-              <p className="text-xs text-slate-500">Avg utilization <span className={cn("font-bold", avg > 85 ? "text-red-600" : avg > 65 ? "text-amber-600" : "text-emerald-600")}>{avg}%</span></p>
+              <p className="text-xs text-slate-500"><span className="font-bold text-emerald-600">{operational}</span> operational</p>
             </Card>
           );
         })}
@@ -73,7 +72,6 @@ export default function FacilitiesPage() {
         {/* Facility cards */}
         <div className="grid gap-3 sm:grid-cols-2 xl:col-span-3">
           {filtered.map((f) => {
-            const pct = utilization(f);
             return (
               <Card key={f.id} className="p-4">
                 <div className="flex items-start justify-between">
@@ -88,15 +86,6 @@ export default function FacilitiesPage() {
                   </div>
                   <StatusBadge status={f.status} />
                 </div>
-                <div className="mt-3">
-                  <div className="mb-1 flex justify-between text-[11px]">
-                    <span className="text-slate-400">{f.currentLoadTons.toLocaleString()} / {f.capacityTons.toLocaleString()} t</span>
-                    <span className={cn("font-bold", pct > 90 ? "text-red-600" : pct > 70 ? "text-amber-600" : "text-emerald-600")}>{pct}%</span>
-                  </div>
-                  <div className="h-2 overflow-hidden rounded-full bg-slate-100">
-                    <div className={cn("h-full rounded-full transition-all", pct > 90 ? "bg-red-500" : pct > 70 ? "bg-amber-500" : "bg-emerald-500")} style={{ width: `${pct}%` }} />
-                  </div>
-                </div>
                 <div className="mt-3 flex items-center justify-between text-[11px] text-slate-400">
                   <span className="flex items-center gap-1"><MapPin className="h-3 w-3" />{f.address}</span>
                   <span className="flex items-center gap-1"><Clock className="h-3 w-3" />{f.openHours}</span>
@@ -105,8 +94,6 @@ export default function FacilitiesPage() {
                   <Button size="sm" variant="outline" className="flex-1" onClick={() => { setFacilityId(f.id); document.getElementById("delivery-form")?.scrollIntoView({ behavior: "smooth" }); }}>
                     <ArrowDownToLine className="h-3.5 w-3.5" /> Record delivery
                   </Button>
-                  <Button size="sm" variant="ghost" onClick={() => updateFacilityLoad(f.id, -50)} title="Simulate waste removal">−50t</Button>
-                  <Button size="sm" variant="ghost" onClick={() => updateFacilityLoad(f.id, 50)} title="Simulate incoming waste">+50t</Button>
                 </div>
               </Card>
             );

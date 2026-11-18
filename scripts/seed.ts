@@ -8,7 +8,6 @@ import {
   deliveryToRow,
   detectionToRow,
   facilityToRow,
-  floodZoneToRow,
   taskToRow,
   truckToRow,
 } from "../src/lib/supabase-mappers";
@@ -42,8 +41,7 @@ async function main() {
   console.log(
     `Generated: ${state.detections.length} detections, ${state.trucks.length} trucks, ` +
       `${state.tasks.length} tasks, ${state.facilities.length} facilities, ` +
-      `${state.deliveries.length} deliveries, ${state.alerts.length} alerts, ` +
-      `${state.floodZones.length} flood zones`
+      `${state.deliveries.length} deliveries, ${state.alerts.length} alerts`
   );
 
   async function upsert(table: string, rows: object[]) {
@@ -59,7 +57,6 @@ async function main() {
   await upsert("cleaning_tasks", state.tasks.map((t) => ({ ...taskToRow(t), created_by: userId })));
   await upsert("deliveries", state.deliveries.map(deliveryToRow));
   await upsert("alerts", state.alerts.map(alertToRow));
-  await upsert("flood_zones", state.floodZones.map(floodZoneToRow));
 
   console.log("Seed complete.");
 }

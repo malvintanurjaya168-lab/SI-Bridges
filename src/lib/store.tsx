@@ -16,12 +16,10 @@ import {
   deliveryToRow,
   detectionToRow,
   facilityToRow,
-  floodZoneToRow,
   rowToAlert,
   rowToDelivery,
   rowToDetection,
   rowToFacility,
-  rowToFloodZone,
   rowToTask,
   rowToTruck,
   rowToUser,
@@ -35,7 +33,6 @@ import {
   CleaningTask,
   Delivery,
   Facility,
-  FloodZone,
   LayerKey,
   Severity,
   TaskStatus,
@@ -54,7 +51,6 @@ export interface AppState {
   facilities: Facility[];
   deliveries: Delivery[];
   alerts: Alert[];
-  floodZones: FloodZone[];
   users: AppUser[];
   currentUserId: string | null;
   loggedIn: boolean;
@@ -73,8 +69,7 @@ interface Store extends AppState {
   setUser: (id: string) => void;
   toggleLayer: (k: LayerKey) => void;
   addDetection: (d: Omit<WasteDetection, "id" | "detectedAt" | "status">) => WasteDetection;
-  verifyDetection: (id: string, override?: Partial<WasteDetection>) => void;
-  rejectDetection: (id: string) => void;
+  reviewDetection: (id: string, decision: "approve" | "reject", opts?: { severity?: Severity; confidence?: number; note?: string }) => void;
   createTaskFromDetection: (detectionId: string, truckId?: string, priority?: CleaningTask["priority"]) => CleaningTask | null;
   updateTaskStatus: (taskId: string, status: TaskStatus, notes?: string) => void;
   assignTask: (taskId: string, truckId: string, team: string) => void;
@@ -99,7 +94,6 @@ const DEFAULT_LAYERS: Record<LayerKey, boolean> = {
   tps: true,
   tpst: true,
   tpa: true,
-  flood: true,
   rivers: true,
 };
 
@@ -129,7 +123,7 @@ function loadDemoState(): AppState {
 }
 
 const emptyState = (): AppState => ({
-  detections: [], trucks: [], tasks: [], facilities: [], deliveries: [], alerts: [], floodZones: [],
+  detections: [], trucks: [], tasks: [], facilities: [], deliveries: [], alerts: [],
   users: [], currentUserId: null, loggedIn: false, layers: DEFAULT_LAYERS,
 });
 
@@ -145,25 +139,23 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   // ---------- data fetching (supabase) ----------
   const fetchAll = useCallback(async (sb: NonNullable<typeof supabase>) => {
-    const [det, trk, tsk, fac, dlv, alt, fld, usr] = await Promise.all([
-      sb.from("detections").select("*").order("detected_at", { ascending: false }),
+    const [det, trk, tsk, fac, dlv, alt, usr] = await Promise.all([
+      sb.from("detections").select("*, profiles!detections_verified_by_fkey(name)").order("detected_at", { ascending: false }),
       sb.from("trucks").select("*"),
       sb.from("cleaning_tasks").select("*, profiles!cleaning_tasks_created_by_fkey(name)").order("created_at", { ascending: false }),
       sb.from("facilities").select("*"),
       sb.from("deliveries").select("*").order("timestamp", { ascending: false }),
       sb.from("alerts").select("*").order("created_at", { ascending: false }),
-      sb.from("flood_zones").select("*"),
       sb.from("profiles").select("id,name,email,role"),
     ]);
     setState((s) => ({
       ...s,
-      detections: (det.data ?? []).map(rowToDetection),
+      detections: (det.data ?? []).map((r: any) => rowToDetection({ ...r, reviewed_by_name: r.profiles?.name })),
       trucks: (trk.data ?? []).map(rowToTruck),
       tasks: (tsk.data ?? []).map((r: any) => rowToTask({ ...r, created_by_name: r.profiles?.name })),
       facilities: (fac.data ?? []).map(rowToFacility),
       deliveries: (dlv.data ?? []).map(rowToDelivery),
       alerts: (alt.data ?? []).map(rowToAlert),
-      floodZones: (fld.data ?? []).map(rowToFloodZone),
       users: (usr.data ?? []).map(rowToUser),
     }));
   }, []);
@@ -281,6 +273,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         if (p.confidence) row.confidence = p.confidence;
         if (p.aiClass !== undefined) row.ai_class = p.aiClass;
         if (p.observations) row.observations = p.observations;
+        if (p.reviewedAt !== undefined) row.reviewed_at = p.reviewedAt;
+        if (p.reviewNote !== undefined) row.review_note = p.reviewNote;
+        if (p.aiSeverity !== undefined) row.ai_severity = p.aiSeverity;
+        if (p.aiConfidence !== undefined) row.ai_confidence = p.aiConfidence;
+        if (p.reviewedBy !== undefined) row.verified_by = state.currentUserId;
         if (p.recommendedAction !== undefined) row.recommended_action = p.recommendedAction;
         if (Object.keys(row).length) sb.from("detections").update(row).eq("id", id).then(({ error }) => error && console.error(error));
       }
@@ -362,8 +359,48 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         return det;
       },
 
-      verifyDetection: (id, override) => patchDetection(id, { status: "verified", ...(override ?? {}) }),
-      rejectDetection: (id) => patchDetection(id, { status: "rejected" }),
+      reviewDetection: (id, decision, opts) => {
+        const reviewer = currentUser?.name ?? "Operator";
+        const now = new Date().toISOString();
+        setState((s) => {
+          const d = s.detections.find((x) => x.id === id);
+          if (!d) return s;
+          return {
+            ...s,
+            detections: s.detections.map((x) =>
+              x.id === id
+                ? {
+                    ...x,
+                    status: decision === "approve" ? "verified" : "rejected",
+                    severity: opts?.severity ?? x.severity,
+                    confidence: opts?.confidence ?? x.confidence,
+                    aiSeverity: x.aiSeverity ?? x.severity,
+                    aiConfidence: x.aiConfidence ?? x.confidence,
+                    reviewedBy: reviewer,
+                    reviewedAt: now,
+                    reviewNote: opts?.note?.trim() || undefined,
+                  }
+                : x
+            ),
+          };
+        });
+        if (sb) {
+          const row: Record<string, unknown> = {
+            status: decision === "approve" ? "verified" : "rejected",
+            reviewed_at: now,
+            review_note: opts?.note?.trim() || null,
+            verified_by: state.currentUserId,
+          };
+          if (opts?.severity) row.severity = opts.severity;
+          if (opts?.confidence !== undefined) row.confidence = opts.confidence;
+          sb.from("detections").update(row).eq("id", id).then(({ error }) => error && console.error(error));
+          // persist AI-original snapshot once
+          const d0 = state.detections.find((x) => x.id === id);
+          if (d0 && d0.aiSeverity === undefined) {
+            sb.from("detections").update({ ai_severity: d0.severity, ai_confidence: d0.confidence }).eq("id", id).then(() => {});
+          }
+        }
+      },
 
       createTaskFromDetection: (detectionId, truckId, priority) => {
         let created: CleaningTask | null = null;

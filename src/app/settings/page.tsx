@@ -20,8 +20,8 @@ const INTEGRATIONS = [
   { name: "OpenAI Vision (AI detection)", status: "demo", desc: "Street-image waste classification. Swap heuristic demo for GPT-4o vision endpoint." },
   { name: "Jakarta Satu API", status: "planned", desc: "Citizen reports & city service tickets." },
   { name: "SIPSN — Air Quality", status: "planned", desc: "PM2.5 / AQI feeds for environmental context." },
-  { name: "BMKG Weather", status: "planned", desc: "Rainfall forecasts for flood-risk scoring." },
-  { name: "BPBD DKI Jakarta", status: "planned", desc: "Official flood warnings & disaster data." },
+  { name: "BMKG Weather", status: "planned", desc: "Weather data for operational planning." },
+  { name: "BPBD DKI Jakarta", status: "planned", desc: "Official disaster management data." },
   { name: "DSDA / DLH Operational Data", status: "planned", desc: "Authorized waste collection records." },
 ];
 
@@ -29,8 +29,6 @@ const DATASETS = [
   { name: "Waste detections", count: "44 records", source: "Demo generator + truck cameras", updated: "Live" },
   { name: "Fleet GPS tracks", count: "8 vehicles", source: "Simulated telemetry", updated: "Live" },
   { name: "Facilities registry", count: "9 sites", source: "Demo registry (TPS/TPST/TPA)", updated: "Static" },
-  { name: "Flood risk zones", count: "10 zones", source: "Heuristic model", updated: "Daily" },
-  { name: "Historical floods", count: "5 yrs", source: "BPBD public records (synthetic)", updated: "Monthly" },
 ];
 
 export default function SettingsPage() {

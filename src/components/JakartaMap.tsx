@@ -7,7 +7,7 @@ import "leaflet/dist/leaflet.css";
 import { X, MapPin, Clock, Cpu, ShieldCheck, Navigation, Search } from "lucide-react";
 import { useStore } from "@/lib/store";
 import { SeverityBadge, StatusBadge, fmtDate, cn } from "@/components/ui";
-import type { WasteDetection, Truck, Facility, FloodZone } from "@/lib/types";
+import type { WasteDetection, Truck, Facility } from "@/lib/types";
 
 const JAKARTA_CENTER: [number, number] = [-6.2, 106.82];
 
@@ -55,12 +55,12 @@ function ZoomTracker({ onZoom }: { onZoom: (z: number) => void }) {
 }
 
 interface Selection {
-  kind: "detection" | "truck" | "facility" | "flood";
+  kind: "detection" | "truck" | "facility";
   id: string;
 }
 
 export default function JakartaMap({ search = "", severityFilter = "all" }: { search?: string; severityFilter?: string }) {
-  const { detections, trucks, facilities, floodZones, layers } = useStore();
+  const { detections, trucks, facilities, layers } = useStore();
   const [zoom, setZoom] = useState(12);
   const [sel, setSel] = useState<Selection | null>(null);
 
@@ -97,7 +97,6 @@ export default function JakartaMap({ search = "", severityFilter = "all" }: { se
   const selectedDetection = sel?.kind === "detection" ? detPoints.find((d) => d.id === sel.id) : null;
   const selectedTruck = sel?.kind === "truck" ? trucks.find((t) => t.id === sel.id) : null;
   const selectedFacility = sel?.kind === "facility" ? facilities.find((f) => f.id === sel.id) : null;
-  const selectedFlood = sel?.kind === "flood" ? floodZones.find((f) => f.id === sel.id) : null;
 
   const sevColor: Record<string, string> = { high: "#dc2626", moderate: "#f97316", low: "#16a34a" };
 
@@ -117,21 +116,6 @@ export default function JakartaMap({ search = "", severityFilter = "all" }: { se
             <Polyline positions={WEST_FLOOD_CANAL} pathOptions={{ color: "#0284c7", weight: 3, opacity: 0.4, dashArray: "6 6" }} />
           </>
         )}
-
-        {/* Flood zones */}
-        {layers.flood &&
-          floodZones.map((f) => {
-            const color = f.risk === "high" ? "#dc2626" : f.risk === "moderate" ? "#f97316" : f.risk === "low" ? "#16a34a" : "#94a3b8";
-            return (
-              <Circle
-                key={f.id}
-                center={[f.lat, f.lng]}
-                radius={450}
-                pathOptions={{ color, weight: 2, fillColor: color, fillOpacity: 0.12, dashArray: "5 5" }}
-                eventHandlers={{ click: () => setSel({ kind: "flood", id: f.id }) }}
-              />
-            );
-          })}
 
         {/* Facilities */}
         {layers.tps && facilities.filter((f) => f.type === "TPS").map((f) => (
@@ -208,20 +192,17 @@ export default function JakartaMap({ search = "", severityFilter = "all" }: { se
             <span className="h-3 w-3 rounded-sm bg-blue-700" /> Facility
           </div>
           <div className="flex items-center gap-2">
-            <span className="h-3 w-3 rounded-full border-2 border-violet-600" /> Flood zone
-          </div>
-          <div className="flex items-center gap-2">
             <span className="h-1.5 w-4 rounded bg-sky-600" /> Waterway
           </div>
         </div>
       </div>
 
       {/* Detail panel */}
-      {sel && (selectedDetection || selectedTruck || selectedFacility || selectedFlood) && (
+      {sel && (selectedDetection || selectedTruck || selectedFacility) && (
         <div className="absolute right-3 top-3 z-[500] w-[320px] max-w-[calc(100%-24px)] rounded-2xl border border-slate-200 bg-white shadow-2xl fade-up">
           <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
             <p className="text-sm font-bold text-slate-900">
-              {selectedDetection ? "Detection Detail" : selectedTruck ? "Truck Detail" : selectedFacility ? "Facility Detail" : "Flood Risk Area"}
+              {selectedDetection ? "Detection Detail" : selectedTruck ? "Truck Detail"  : selectedFacility ? "Facility Detail" : "Facility Detail"}
             </p>
             <button onClick={() => setSel(null)} className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600">
               <X className="h-4 w-4" />
@@ -231,7 +212,6 @@ export default function JakartaMap({ search = "", severityFilter = "all" }: { se
             {selectedDetection && <DetectionPanel d={selectedDetection} />}
             {selectedTruck && <TruckPanel t={selectedTruck} />}
             {selectedFacility && <FacilityPanel f={selectedFacility} />}
-            {selectedFlood && <FloodPanel f={selectedFlood} />}
           </div>
         </div>
       )}
@@ -278,6 +258,8 @@ function DetectionPanel({ d }: { d: WasteDetection }) {
         <Row label="Detected" value={fmtDate(d.detectedAt)} />
         <Row label="AI class" value={<span className="font-mono text-[11px]">{d.aiClass}</span>} />
         <Row label="Confidence" value={`${d.confidence}%`} />
+        {d.reviewedBy && <Row label="Reviewed" value={`${d.reviewedBy} · ${fmtDate(d.reviewedAt ?? "")}`} />}
+        {d.aiSeverity && d.aiSeverity !== d.severity && <Row label="AI suggested" value={`${d.aiSeverity} / ${d.aiConfidence}%`} />}
         <Row label="Source" value={d.source.replace("_", " ")} />
       </div>
       <div className="mt-3">
@@ -316,7 +298,6 @@ function TruckPanel({ t }: { t: Truck }) {
 }
 
 function FacilityPanel({ f }: { f: Facility }) {
-  const pct = Math.round((f.currentLoadTons / f.capacityTons) * 100);
   return (
     <div>
       <div className="mb-3 flex items-center justify-between">
@@ -324,15 +305,6 @@ function FacilityPanel({ f }: { f: Facility }) {
         <StatusBadge status={f.status} />
       </div>
       <p className="text-xs text-slate-500">{f.type} · {f.operator}</p>
-      <div className="mt-3">
-        <div className="mb-1 flex justify-between text-[11px]">
-          <span className="text-slate-400">Capacity</span>
-          <span className="font-semibold text-slate-700">{f.currentLoadTons.toLocaleString()} / {f.capacityTons.toLocaleString()} t ({pct}%)</span>
-        </div>
-        <div className="h-2 overflow-hidden rounded-full bg-slate-100">
-          <div className={cn("h-full rounded-full", pct > 90 ? "bg-red-500" : pct > 70 ? "bg-amber-500" : "bg-emerald-500")} style={{ width: `${pct}%` }} />
-        </div>
-      </div>
       <div className="mt-3 divide-y divide-slate-100">
         <Row label="Address" value={f.address} />
         <Row label="Hours" value={f.openHours} />
@@ -342,31 +314,6 @@ function FacilityPanel({ f }: { f: Facility }) {
   );
 }
 
-function FloodPanel({ f }: { f: FloodZone }) {
-  return (
-    <div>
-      <div className="mb-3 flex items-center justify-between">
-        <p className="text-sm font-bold text-slate-900">{f.name}</p>
-        <SeverityBadge severity={f.risk === "insufficient" ? "low" : f.risk} />
-      </div>
-      <p className="text-xs text-slate-500">{f.district} · Risk score {f.score}/100</p>
-      <div className="mt-3">
-        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Environmental factors</p>
-        <div className="mt-1 space-y-1.5">
-          {f.factors.map((fac, i) => (
-            <div key={i} className="flex items-center justify-between rounded-lg bg-slate-50 px-2.5 py-1.5 text-xs">
-              <span className="text-slate-600">{fac.label}</span>
-              <span className={cn("font-semibold", fac.impact === "negative" ? "text-red-600" : fac.impact === "positive" ? "text-emerald-600" : "text-slate-500")}>{fac.value}</span>
-            </div>
-          ))}
-        </div>
-      </div>
-      <p className="mt-3 rounded-lg bg-violet-50 px-2.5 py-1.5 text-[10px] leading-relaxed text-violet-700">
-        Decision-support indicator only — not an official flood prediction.
-      </p>
-    </div>
-  );
-}
 
 // Exposed search helper used by page
 export function MapSearchHint() {

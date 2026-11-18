@@ -13,13 +13,12 @@ interface TableCfg {
 }
 
 const TABLES: TableCfg[] = [
-  { key: "detections", label: "Detections", hint: "id, location, district, lat, lng, severity(high|moderate|low), confidence, ai_class, status(new|verified|assigned|resolved|rejected), source, observations[], recommended_action, detected_at" },
+  { key: "detections", label: "Detections", hint: "id, location, district, lat, lng, severity(high|moderate|low), confidence, ai_class, status(new|verified|assigned|resolved|rejected), source, observations[], recommended_action, detected_at, reviewed_at, review_note, ai_severity, ai_confidence" },
   { key: "trucks", label: "Trucks", hint: "id, plate, name, status(active|idle|offline|maintenance), lat, lng, route_id, route_name, driver, team, capacity_kg, load_kg, waypoints[], wp_index, speed_kmh" },
   { key: "cleaning_tasks", label: "Cleaning Tasks", hint: "id, title, location, district, lat, lng, priority(critical|high|medium|low), status(pending|assigned|en_route|in_progress|completed|cancelled), detection_id, truck_id, team, notes, evidence_uploaded, verified" },
   { key: "facilities", label: "Facilities", hint: "id, name, type(TPS|TPST|TPA), lat, lng, address, capacity_tons, current_load_tons, operator, status(operational|near_capacity|full|maintenance), open_hours" },
   { key: "deliveries", label: "Deliveries", hint: "id, truck_id, facility_id, weight_kg, timestamp, status(completed|in_transit|scheduled), notes" },
   { key: "alerts", label: "Alerts", hint: "id, type, severity(critical|warning|info), title, message, related_id, status(open|acknowledged|resolved)" },
-  { key: "flood_zones", label: "Flood Zones", hint: "id, name, district, lat, lng, risk(low|moderate|high|insufficient), score, factors[], recommendations[]" },
 ];
 
 const PREVIEW_COLS = 5;

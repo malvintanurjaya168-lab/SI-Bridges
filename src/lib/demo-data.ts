@@ -5,7 +5,6 @@ import {
   CleaningTask,
   Delivery,
   Facility,
-  FloodZone,
   Severity,
   Truck,
   WasteDetection,
@@ -324,7 +323,7 @@ export function generateAlerts(detections: WasteDetection[], trucks: Truck[], fa
     type: "environmental_risk",
     severity: "info",
     title: "Potential environmental risk — Ciliwung corridor",
-    message: "Waste accumulation near waterway combined with forecast rain may increase local flood risk. Review flood analysis module.",
+    message: "Waste accumulation near waterway may increase local blockage risk. Review detection module.",
     createdAt: hoursAgo(8),
     status: "acknowledged",
   });
@@ -340,35 +339,6 @@ export function generateAlerts(detections: WasteDetection[], trucks: Truck[], fa
   return alerts.sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt));
 }
 
-export function generateFloodZones(): FloodZone[] {
-  const defs: { name: string; district: string; lat: number; lng: number; risk: FloodZone["risk"]; score: number }[] = [
-    { name: "Ciliwung — Kampung Melayu", district: "East Jakarta", lat: -6.225, lng: 106.885, risk: "high", score: 82 },
-    { name: "Ciliwung — Penjaringan", district: "North Jakarta", lat: -6.135, lng: 106.855, risk: "high", score: 78 },
-    { name: "Ciliwung — Manggarai", district: "Central Jakarta", lat: -6.205, lng: 106.835, risk: "moderate", score: 64 },
-    { name: "Ciliwung — Jatinegara", district: "East Jakarta", lat: -6.225, lng: 106.87, risk: "moderate", score: 61 },
-    { name: "Ciliwung — Pintu Air Kencana", district: "South Jakarta", lat: -6.275, lng: 106.8, risk: "moderate", score: 55 },
-    { name: "Kanal Banjir Timur", district: "East Jakarta", lat: -6.245, lng: 106.915, risk: "high", score: 74 },
-    { name: "Kanal Banjir Barat", district: "West Jakarta", lat: -6.185, lng: 106.775, risk: "low", score: 38 },
-    { name: "Pluit retention area", district: "North Jakarta", lat: -6.115, lng: 106.885, risk: "moderate", score: 52 },
-    { name: "Pesanggrahan lowland", district: "South Jakarta", lat: -6.32, lng: 106.79, risk: "insufficient", score: 30 },
-    { name: "Marunda estuary", district: "North Jakarta", lat: -6.155, lng: 106.895, risk: "high", score: 80 },
-  ];
-  return defs.map((d, i) => ({
-    ...d,
-    id: `FLD-${i + 1}`,
-    factors: [
-      { label: "Waste accumulation proximity", value: d.risk === "high" ? "High density" : d.risk === "moderate" ? "Moderate" : "Low", impact: d.score > 70 ? "negative" : d.score > 45 ? "neutral" : "positive" },
-      { label: "Recent rainfall (24h)", value: `${ri(20, 120)} mm`, impact: d.score > 60 ? "negative" : "neutral" },
-      { label: "Drainage proximity", value: pick(["< 50 m", "50–200 m", "> 200 m"]), impact: "neutral" },
-      { label: "Historical flood events", value: `${ri(0, 6)} events / 5 yrs`, impact: d.score > 65 ? "negative" : "neutral" },
-    ],
-    recommendations: d.risk === "high"
-      ? ["Prioritize waste clearance within 200 m of waterway", "Inspect and clear drainage inlets", "Coordinate with BPBD for early warning", "Verify TPS capacity for overflow waste"]
-      : d.risk === "moderate"
-        ? ["Schedule preventive drainage inspection", "Monitor rainfall forecast", "Include in weekly patrol route"]
-        : ["Continue routine monitoring", "No immediate action required"],
-  }));
-}
 
 export const USERS: AppUser[] = [
   { id: "USR-001", name: "Admin", role: "admin", email: "admin@gmail.com" },
@@ -387,7 +357,6 @@ export function buildDemoState() {
     facilities,
     deliveries: generateDeliveries(trucks, facilities),
     alerts: generateAlerts(detections, trucks, facilities),
-    floodZones: generateFloodZones(),
   };
 }
 

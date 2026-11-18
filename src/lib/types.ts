@@ -12,8 +12,6 @@ export type FacilityType = "TPS" | "TPST" | "TPA";
 export type AlertStatus = "open" | "acknowledged" | "resolved";
 export type AlertSeverity = "critical" | "warning" | "info";
 export type UserRole = "admin" | "truck_operator" | "user";
-export type DetectionSource = "truck_camera" | "cctv" | "citizen_report" | "manual" | "live_camera";
-export type FloodRisk = "low" | "moderate" | "high" | "insufficient";
 export type LayerKey =
   | "detections"
   | "trucks"
@@ -21,9 +19,9 @@ export type LayerKey =
   | "tps"
   | "tpst"
   | "tpa"
-  | "flood"
   | "rivers";
 
+export type DetectionSource = "truck_camera" | "cctv" | "citizen_report" | "manual" | "live_camera";
 export interface WasteDetection {
   id: string;
   location: string;
@@ -39,6 +37,12 @@ export interface WasteDetection {
   observations: string[];
   recommendedAction: string;
   imageLabel?: string;
+  // Human-in-the-loop review metadata (set when an operator validates/rejects an AI detection)
+  reviewedBy?: string;
+  reviewedAt?: string;
+  reviewNote?: string;
+  aiSeverity?: Severity;   // original AI suggestion, preserved when a human overrides
+  aiConfidence?: number;
 }
 
 export interface Truck {
@@ -115,17 +119,6 @@ export interface Alert {
   relatedId?: string;
 }
 
-export interface FloodZone {
-  id: string;
-  name: string;
-  district: string;
-  lat: number;
-  lng: number;
-  risk: FloodRisk;
-  score: number;
-  factors: { label: string; value: string; impact: "positive" | "negative" | "neutral" }[];
-  recommendations: string[];
-}
 
 export interface AppUser {
   id: string;

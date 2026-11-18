@@ -1,14 +1,14 @@
 "use client";
 
 import React, { useRef, useState } from "react";
-import { Upload, Image as ImageIcon, Loader2, CheckCircle2, XCircle, ClipboardList, Sparkles, AlertTriangle } from "lucide-react";
+import { Upload, Image as ImageIcon, Loader2, CheckCircle2, XCircle, ClipboardList, Sparkles, AlertTriangle, UserCheck, ShieldAlert } from "lucide-react";
 import { Card, Button, Input, Label, Select, Badge, SeverityBadge, StatusBadge, DemoTag, fmtDate, cn, EmptyState } from "@/components/ui";
 import { useStore } from "@/lib/store";
-import { AIAnalysis, WasteDetection } from "@/lib/types";
+import { AIAnalysis, Severity, WasteDetection } from "@/lib/types";
 import { DISTRICTS } from "@/lib/geo";
 
 export default function DetectionPage() {
-  const { addDetection, verifyDetection, rejectDetection, createTaskFromDetection, detections, trucks, simulateAI } = useStore();
+  const { addDetection, reviewDetection, createTaskFromDetection, detections, trucks, simulateAI, currentUser } = useStore();
   const fileRef = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
@@ -22,6 +22,10 @@ export default function DetectionPage() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [taskTruck, setTaskTruck] = useState("");
   const [taskMsg, setTaskMsg] = useState("");
+  const [reviewing, setReviewing] = useState<WasteDetection | null>(null);
+  const [rvSeverity, setRvSeverity] = useState<Severity>("moderate");
+  const [rvConfidence, setRvConfidence] = useState(50);
+  const [rvNote, setRvNote] = useState("");
 
   const onFile = (f: File | null) => {
     setFile(f);
@@ -111,6 +115,25 @@ export default function DetectionPage() {
     if (!result?.detection) return;
     const task = createTaskFromDetection(result.detection.id, taskTruck || undefined);
     setTaskMsg(task ? `Cleaning task ${task.id} created${task.truckId ? ` and assigned to ${task.truckId}` : " (pending assignment)"}.` : "Failed to create task.");
+  };
+
+  const openReview = (d: WasteDetection) => {
+    setReviewing(d);
+    setRvSeverity(d.severity);
+    setRvConfidence(d.confidence);
+    setRvNote("");
+  };
+
+  const submitReview = (decision: "approve" | "reject") => {
+    if (!reviewing) return;
+    const changed = rvSeverity !== reviewing.severity || rvConfidence !== reviewing.confidence;
+    reviewDetection(reviewing.id, decision, {
+      severity: rvSeverity,
+      confidence: rvConfidence,
+      note: rvNote || (changed ? "Human override of AI suggestion" : undefined),
+    });
+    setReviewing(null);
+    setTaskMsg(decision === "approve" ? `${reviewing.id} approved by ${currentUser?.name ?? "operator"} — ready for dispatch.` : `${reviewing.id} rejected.`);
   };
 
   const recent = detections.filter((d) => d.status !== "rejected").slice(0, 12);
@@ -302,16 +325,16 @@ export default function DetectionPage() {
                     <td className="px-3 py-2.5 font-semibold text-slate-600">{d.confidence}%</td>
                     <td className="px-3 py-2.5 capitalize text-slate-500">{d.source.replace("_", " ")}</td>
                     <td className="px-3 py-2.5 text-slate-500">{fmtDate(d.detectedAt)}</td>
-                    <td className="px-3 py-2.5"><StatusBadge status={d.status} /></td>
+                    <td className="px-3 py-2.5">
+                      <StatusBadge status={d.status} />
+                      {d.reviewedBy && <p className="mt-0.5 text-[9px] text-slate-400">by {d.reviewedBy}</p>}
+                    </td>
                     <td className="px-5 py-2.5">
                       <div className="flex justify-end gap-1">
                         {d.status === "new" && (
-                          <>
-                            <button onClick={() => verifyDetection(d.id)} title="Verify" className="rounded-lg p-1.5 text-emerald-600 hover:bg-emerald-50"><CheckCircle2 className="h-4 w-4" /></button>
-                            <button onClick={() => rejectDetection(d.id)} title="Reject" className="rounded-lg p-1.5 text-red-500 hover:bg-red-50"><XCircle className="h-4 w-4" /></button>
-                          </>
+                          <button onClick={() => openReview(d)} title="Human review" className="rounded-lg p-1.5 text-blue-600 hover:bg-blue-50"><UserCheck className="h-4 w-4" /></button>
                         )}
-                        {["verified", "new"].includes(d.status) && (
+                        {d.status === "verified" && (
                           <button
                             onClick={() => { const t = createTaskFromDetection(d.id); setTaskMsg(t ? `Task ${t.id} created.` : ""); }}
                             title="Create task"
@@ -327,6 +350,65 @@ export default function DetectionPage() {
           )}
         </div>
       </Card>
+
+      {/* Human review modal */}
+      {reviewing && (
+        <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm" onClick={() => setReviewing(null)}>
+          <div className="w-full max-w-lg rounded-2xl bg-white shadow-2xl fade-up" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
+              <div>
+                <h3 className="flex items-center gap-2 text-sm font-bold text-slate-900"><ShieldAlert className="h-4 w-4 text-blue-600" /> Human Review — {reviewing.id}</h3>
+                <p className="text-xs text-slate-400">{reviewing.location} · {reviewing.district}</p>
+              </div>
+              <button onClick={() => setReviewing(null)} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100"><XCircle className="h-4 w-4" /></button>
+            </div>
+            <div className="max-h-[70vh] overflow-y-auto p-5">
+              {/* AI suggestion (read-only reference) */}
+              <div className="rounded-xl bg-slate-50 p-3">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">AI suggestion</p>
+                <div className="mt-1 flex items-center gap-2 text-xs">
+                  <SeverityBadge severity={reviewing.severity} />
+                  <span className="font-semibold text-slate-600">{reviewing.confidence}% confidence</span>
+                  <span className="text-slate-400">· {reviewing.aiClass}</span>
+                </div>
+                <p className="mt-1.5 text-xs text-slate-500">{reviewing.recommendedAction}</p>
+              </div>
+
+              {/* Human decision */}
+              <div className="mt-4 grid grid-cols-2 gap-3">
+                <div>
+                  <Label>Severity (human)</Label>
+                  <Select value={rvSeverity} onChange={(e) => setRvSeverity(e.target.value as Severity)}>
+                    <option value="low">Low</option>
+                    <option value="moderate">Moderate</option>
+                    <option value="high">High</option>
+                  </Select>
+                </div>
+                <div>
+                  <Label>Confidence %</Label>
+                  <Input type="number" min={0} max={100} value={rvConfidence} onChange={(e) => setRvConfidence(Math.max(0, Math.min(100, +e.target.value)))} />
+                </div>
+              </div>
+              {(rvSeverity !== reviewing.severity || rvConfidence !== reviewing.confidence) && (
+                <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-[11px] font-medium text-amber-700">
+                  You are overriding the AI suggestion — the original values are kept for audit.
+                </p>
+              )}
+              <div className="mt-3">
+                <Label>Review note (optional)</Label>
+                <Input value={rvNote} onChange={(e) => setRvNote(e.target.value)} placeholder="e.g. Verified on-site via drone photo; severity lowered — pile is contained" />
+              </div>
+              <div className="mt-4 flex gap-2">
+                <Button onClick={() => submitReview("approve")} className="flex-1"><CheckCircle2 className="h-4 w-4" /> Approve & Verify</Button>
+                <Button onClick={() => submitReview("reject")} variant="danger" className="flex-1"><XCircle className="h-4 w-4" /> Reject</Button>
+              </div>
+              <p className="mt-2 text-center text-[10px] text-slate-400">
+                Reviewing as <span className="font-semibold">{currentUser?.name ?? "guest"}</span> — recorded with timestamp for audit.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
