@@ -3,12 +3,15 @@
 import React, { useState } from "react";
 import { Users, Database, Settings2, ShieldCheck, RotateCcw, CheckCircle2, Plug } from "lucide-react";
 import { Card, Badge, Button, Select, Label, DemoTag, cn } from "@/components/ui";
+import DataManager from "@/components/DataManager";
 import { useStore } from "@/lib/store";
+import { getSupabase, isSupabaseConfigured } from "@/lib/supabase";
 import { ROLE_LABELS } from "@/lib/demo-data";
 import type { UserRole } from "@/lib/types";
 
 const TABS = [
   { key: "users", label: "Users & Roles", icon: Users },
+  { key: "records", label: "Database Records", icon: Database },
   { key: "data", label: "Datasets & Integrations", icon: Database },
   { key: "system", label: "System Settings", icon: Settings2 },
 ];
@@ -37,8 +40,21 @@ export default function SettingsPage() {
   const [saved, setSaved] = useState(false);
   const isAdmin = currentUser?.role === "admin";
 
-  const saveRoles = () => {
-    // Demo: roles are display-only; in production this would PATCH Supabase.
+  const [roleError, setRoleError] = useState("");
+  const saveRoles = async () => {
+    setRoleError("");
+    const sb = getSupabase();
+    if (!sb || !isAdmin) {
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+      return;
+    }
+    // Real Supabase update — admin-only per RLS policy
+    for (const [uid, role] of Object.entries(roleDraft)) {
+      const { error } = await sb.from("profiles").update({ role }).eq("id", uid);
+      if (error) { setRoleError(error.message); return; }
+    }
+    setRoleDraft({});
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
   };
@@ -113,11 +129,16 @@ export default function SettingsPage() {
           {isAdmin && Object.keys(roleDraft).length > 0 && (
             <div className="flex items-center gap-3 border-t border-slate-100 px-5 py-3">
               <Button size="sm" onClick={saveRoles}>{saved ? "Saved ✓" : "Save role changes"}</Button>
-              <p className="text-[11px] text-slate-400">Demo mode: role edits are session-only. Production: Supabase auth + RLS policies.</p>
+              <p className="text-[11px] text-slate-400">
+                {isSupabaseConfigured ? "Writes to Supabase profiles (admin only, enforced by RLS)." : "Demo mode: role edits are session-only."}
+                {roleError && <span className="ml-2 font-medium text-red-600">{roleError}</span>}
+              </p>
             </div>
           )}
         </Card>
       )}
+
+      {tab === "records" && <DataManager />}
 
       {tab === "data" && (
         <div className="grid gap-4 lg:grid-cols-2">

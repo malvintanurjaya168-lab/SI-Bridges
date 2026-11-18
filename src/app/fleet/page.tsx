@@ -74,7 +74,7 @@ export default function FleetPage() {
                 <tr>
                   <th className="px-4 py-2.5">Truck</th><th className="px-3 py-2.5">Status</th>
                   <th className="px-3 py-2.5">Route</th><th className="px-3 py-2.5">Driver / Team</th>
-                  <th className="px-3 py-2.5">Load</th><th className="px-3 py-2.5">Deliveries</th>
+                  <th className="px-3 py-2.5">Deliveries</th>
                   <th className="px-3 py-2.5">Last GPS</th><th className="px-4 py-2.5 text-right">Set status</th>
                 </tr>
               </thead>
@@ -92,14 +92,6 @@ export default function FleetPage() {
                     <td className="px-3 py-2.5">
                       <p className="flex items-center gap-1 text-slate-700"><User className="h-3 w-3 text-slate-400" />{t.driver}</p>
                       <p className="text-[10px] text-slate-400">{t.team}</p>
-                    </td>
-                    <td className="px-3 py-2.5">
-                      <div className="w-20">
-                        <div className="h-1.5 overflow-hidden rounded-full bg-slate-100">
-                          <div className={cn("h-full rounded-full", t.loadKg / t.capacityKg > 0.8 ? "bg-red-500" : "bg-teal-500")} style={{ width: `${Math.min(100, (t.loadKg / t.capacityKg) * 100)}%` }} />
-                        </div>
-                        <p className="mt-0.5 text-[10px] text-slate-400">{(t.loadKg / 1000).toFixed(1)}/{(t.capacityKg / 1000).toFixed(0)}t</p>
-                      </div>
                     </td>
                     <td className="px-3 py-2.5 font-semibold text-slate-600">{deliveriesByTruck[t.id] ?? 0}</td>
                     <td className="px-3 py-2.5 text-slate-500">{timeAgo(t.lastUpdate)}</td>
