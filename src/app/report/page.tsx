@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useRef, useState } from "react";
-import { useRouter } from "next/navigation";
 import { Flag, Upload, Loader2, MapPin, Sparkles, CheckCircle2, LocateFixed } from "lucide-react";
 import { Card, Button, Input, Label, Select, Badge, SeverityBadge, DemoTag, cn } from "@/components/ui";
 import { useStore } from "@/lib/store";
@@ -10,7 +9,6 @@ import { DISTRICTS } from "@/lib/geo";
 
 export default function ReportPage() {
   const { addDetection, currentUser } = useStore();
-  const router = useRouter();
   const fileRef = useRef<HTMLInputElement>(null);
 
   const [file, setFile] = useState<File | null>(null);
@@ -110,7 +108,6 @@ export default function ReportPage() {
       imageLabel: file?.name,
     });
     setSubmitted(det.id);
-    setTimeout(() => router.push("/detection"), 1800);
   };
 
   if (submitted) {
@@ -123,6 +120,9 @@ export default function ReportPage() {
             <span className="font-mono font-semibold">{submitted}</span> is now in the review queue.
             An admin or operator will verify it before a truck is assigned.
           </p>
+          <Button variant="secondary" className="mt-4" onClick={() => { setSubmitted(null); setFile(null); setPreview(null); setAi(null); setLocation(""); setNotes(""); setLat(""); setLng(""); }}>
+            Submit another report
+          </Button>
         </Card>
       </div>
     );
