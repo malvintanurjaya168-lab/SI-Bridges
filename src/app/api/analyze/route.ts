@@ -102,7 +102,7 @@ async function analyzeGemini(base64: string, mime: string, location: string, dis
               ],
             },
           ],
-          generationConfig: { temperature: 0.2, responseMimeType: "application/json" },
+          generationConfig: { temperature: 0.2, responseMimeType: "application/json", thinkingConfig: { thinkingBudget: 0 } },
         }),
       });
       if (res.ok) {
