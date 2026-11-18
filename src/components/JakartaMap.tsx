@@ -302,7 +302,6 @@ function FacilityPanel({ f }: { f: Facility }) {
     <div>
       <div className="mb-3 flex items-center justify-between">
         <p className="text-sm font-bold text-slate-900">{f.name}</p>
-        <StatusBadge status={f.status} />
       </div>
       <p className="text-xs text-slate-500">{f.type} · {f.operator}</p>
       <div className="mt-3 divide-y divide-slate-100">

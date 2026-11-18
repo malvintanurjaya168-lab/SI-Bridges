@@ -57,12 +57,10 @@ export default function FacilitiesPage() {
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         {(["TPS", "TPST", "TPA"] as FacilityType[]).map((t) => {
           const list = byType[t];
-          const operational = list.filter((f) => f.status === "operational").length;
           return (
             <Card key={t} className="p-4">
               <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">{t} Facilities</p>
               <p className="mt-1 text-2xl font-bold text-slate-900">{list.length}</p>
-              <p className="text-xs text-slate-500"><span className="font-bold text-emerald-600">{operational}</span> operational</p>
             </Card>
           );
         })}
@@ -84,7 +82,6 @@ export default function FacilitiesPage() {
                       <p className="text-[11px] text-slate-400">{f.type} · {f.operator}</p>
                     </div>
                   </div>
-                  <StatusBadge status={f.status} />
                 </div>
                 <div className="mt-3 flex items-center justify-between text-[11px] text-slate-400">
                   <span className="flex items-center gap-1"><MapPin className="h-3 w-3" />{f.address}</span>
