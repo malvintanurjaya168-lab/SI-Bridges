@@ -19,7 +19,7 @@ export default function DetectionPage() {
   const [lng, setLng] = useState("106.8200");
   const [analyzing, setAnalyzing] = useState(false);
   const [annotated, setAnnotated] = useState<string | null>(null);
-  const [engine, setEngine] = useState<"yolo" | "demo">("yolo");
+  const [engine, setEngine] = useState<"openai" | "yolo" | "demo">("openai");
   const [result, setResult] = useState<(AIAnalysis & { detection?: WasteDetection }) | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [taskTruck, setTaskTruck] = useState("");
@@ -47,7 +47,36 @@ export default function DetectionPage() {
     setTaskMsg("");
     setAnnotated(null);
     try {
-      // Real on-device inference with YOLO26n
+      // 1) Try OpenAI vision API (server route keeps key secret)
+      const form = new FormData();
+      form.append("image", file!);
+      form.append("location", location);
+      form.append("district", district);
+      const apiRes = await fetch("/api/analyze", { method: "POST", body: form });
+      if (apiRes.ok) {
+        const a = await apiRes.json();
+        const analysis: AIAnalysis = {
+          severity: a.severity,
+          confidence: a.confidence,
+          observations: a.observations?.length ? a.observations : ["Scene analyzed by vision model."],
+          recommendedActions: a.recommendedAction ? [a.recommendedAction] : [
+            a.severity === "high" ? "Dispatch collection crew within 24 hours." :
+            a.severity === "moderate" ? "Schedule routine collection within 48 hours." :
+            "Include in next scheduled sweep.",
+          ],
+          wasteTypes: a.wasteTypes?.length ? a.wasteTypes : [{ label: "Mixed waste", pct: 100 }],
+        };
+        setEngine("openai");
+        setResult(analysis);
+        setAnalyzing(false);
+        return;
+      }
+    } catch (e) {
+      console.warn("OpenAI analysis unavailable, trying on-device model", e);
+    }
+
+    try {
+      // 2) On-device YOLO26n fallback
       const img = new Image();
       img.src = preview;
       await img.decode();
@@ -75,6 +104,7 @@ export default function DetectionPage() {
       setEngine("yolo");
       setResult(analysis);
       setAnnotated(drawBoxes(img, dets));
+      setAnalyzing(false);
     } catch (e) {
       console.error("YOLO analysis failed, falling back to demo", e);
       const a = simulateAI(location, district, file?.name);
@@ -112,7 +142,7 @@ export default function DetectionPage() {
       lng: +lng,
       severity: result.severity,
       confidence: result.confidence,
-      aiClass: engine === "yolo" ? "yolo26n_object_detection" : result.severity === "high" ? "severe_accumulation" : result.severity === "moderate" ? "moderate_accumulation" : "minor_litter",
+      aiClass: engine === "openai" ? "gpt4o_vision_analysis" : engine === "yolo" ? "yolo26n_object_detection" : result.severity === "high" ? "severe_accumulation" : result.severity === "moderate" ? "moderate_accumulation" : "minor_litter",
       source: "manual",
       observations: result.observations,
       recommendedAction: result.recommendedActions[0],
@@ -198,7 +228,7 @@ export default function DetectionPage() {
             {analyzing ? "Analyzing image…" : "Run AI Analysis"}
           </Button>
           <p className="mt-2 text-center text-[10px] text-slate-400">
-            {engine === "yolo" ? "Powered by YOLO26n on-device inference." : "Demo heuristic fallback — YOLO model unavailable."}
+            {engine === "openai" ? "GPT-4o vision analysis (OpenAI)." : engine === "yolo" ? "On-device YOLO26n (no API key)." : "Demo heuristic fallback."}
           </p>
         </Card>
 
@@ -210,7 +240,9 @@ export default function DetectionPage() {
                 <Sparkles className="h-4 w-4 text-emerald-600" /> AI Analysis Result
               </h3>
               <div className="flex items-center gap-2">
-                <Badge tone={engine === "yolo" ? "purple" : "amber"}>{engine === "yolo" ? "YOLO26n" : "Demo AI"}</Badge>
+                <Badge tone={engine === "openai" ? "green" : engine === "yolo" ? "purple" : "amber"}>
+                  {engine === "openai" ? "GPT-4o" : engine === "yolo" ? "YOLO26n" : "Demo AI"}
+                </Badge>
                 <SeverityBadge severity={result.severity} />
               </div>
             </div>
