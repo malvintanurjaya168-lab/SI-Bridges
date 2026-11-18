@@ -19,71 +19,115 @@ Severity guide:
 If the image contains no visible waste, still respond with severity "low" and explain in observations.
 Waste types should sum to ~100 and only include categories actually visible (e.g. "Mixed household waste", "Plastics & packaging", "Organic waste", "Construction debris").`;
 
+interface AnalysisResult {
+  severity: string;
+  confidence: number;
+  observations: string[];
+  wasteTypes: { label: string; pct: number }[];
+  recommendedAction: string;
+}
+
+function normalize(parsed: any): AnalysisResult {
+  const severity = ["high", "moderate", "low"].includes(parsed?.severity) ? parsed.severity : "low";
+  return {
+    severity,
+    confidence: Math.max(0, Math.min(100, parseInt(parsed?.confidence) || 50)),
+    observations: Array.isArray(parsed?.observations) ? parsed.observations.slice(0, 5).map(String) : [],
+    wasteTypes: Array.isArray(parsed?.wasteTypes)
+      ? parsed.wasteTypes.slice(0, 6).map((w: any) => ({ label: String(w?.label ?? "Other"), pct: Math.max(0, parseInt(w?.pct) || 0) }))
+      : [],
+    recommendedAction: String(parsed?.recommendedAction ?? ""),
+  };
+}
+
+async function analyzeOpenAI(base64: string, mime: string, location: string, district: string): Promise<AnalysisResult> {
+  const res = await fetch("https://api.openai.com/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+    },
+    body: JSON.stringify({
+      model: process.env.OPENAI_MODEL || "gpt-4o-mini",
+      temperature: 0.2,
+      response_format: { type: "json_object" },
+      messages: [
+        { role: "system", content: SYSTEM_PROMPT },
+        {
+          role: "user",
+          content: [
+            {
+              type: "text",
+              text: `Assess waste accumulation in this image.${location ? ` Location context: ${location}, ${district}, Jakarta.` : ""} Classify severity and describe what you see.`,
+            },
+            { type: "image_url", image_url: { url: `data:${mime};base64,${base64}`, detail: "low" } },
+          ],
+        },
+      ],
+    }),
+  });
+  if (!res.ok) throw new Error(`OpenAI ${res.status}: ${(await res.text()).slice(0, 200)}`);
+  const json = await res.json();
+  return normalize(JSON.parse(json.choices?.[0]?.message?.content ?? "{}"));
+}
+
+async function analyzeGemini(base64: string, mime: string, location: string, district: string): Promise<AnalysisResult> {
+  const model = process.env.GEMINI_MODEL || "gemini-2.5-flash";
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${process.env.GEMINI_API_KEY}`;
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
+      contents: [
+        {
+          role: "user",
+          parts: [
+            {
+              text: `Assess waste accumulation in this image.${location ? ` Location context: ${location}, ${district}, Jakarta.` : ""} Classify severity and describe what you see. Respond with the JSON object only.`,
+            },
+            { inline_data: { mime_type: mime, data: base64 } },
+          ],
+        },
+      ],
+      generationConfig: { temperature: 0.2, responseMimeType: "application/json" },
+    }),
+  });
+  if (!res.ok) throw new Error(`Gemini ${res.status}: ${(await res.text()).slice(0, 200)}`);
+  const json = await res.json();
+  const text = json.candidates?.[0]?.content?.parts?.map((p: any) => p.text).join("") ?? "{}";
+  return normalize(JSON.parse(text));
+}
+
 export async function POST(req: NextRequest) {
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) {
-    return NextResponse.json({ error: "OPENAI_API_KEY not configured" }, { status: 501 });
-  }
+  const form = await req.formData();
+  const file = form.get("image") as File | null;
+  if (!file) return NextResponse.json({ error: "No image provided" }, { status: 400 });
+  const location = (form.get("location") as string) ?? "";
+  const district = (form.get("district") as string) ?? "";
 
-  try {
-    const form = await req.formData();
-    const file = form.get("image") as File | null;
-    const location = (form.get("location") as string) ?? "";
-    const district = (form.get("district") as string) ?? "";
+  const bytes = await file.arrayBuffer();
+  const base64 = Buffer.from(bytes).toString("base64");
+  const mime = file.type || "image/jpeg";
 
-    if (!file) return NextResponse.json({ error: "No image provided" }, { status: 400 });
+  const providers: { name: string; key?: string; fn: () => Promise<AnalysisResult> }[] = [
+    { name: "openai", key: process.env.OPENAI_API_KEY, fn: () => analyzeOpenAI(base64, mime, location, district) },
+    { name: "gemini", key: process.env.GEMINI_API_KEY, fn: () => analyzeGemini(base64, mime, location, district) },
+  ];
 
-    const bytes = await file.arrayBuffer();
-    const base64 = Buffer.from(bytes).toString("base64");
-    const mime = file.type || "image/jpeg";
-
-    const res = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: process.env.OPENAI_MODEL || "gpt-4o-mini",
-        temperature: 0.2,
-        response_format: { type: "json_object" },
-        messages: [
-          { role: "system", content: SYSTEM_PROMPT },
-          {
-            role: "user",
-            content: [
-              {
-                type: "text",
-                text: `Assess waste accumulation in this image.${location ? ` Location context: ${location}, ${district}, Jakarta.` : ""} Classify severity and describe what you see.`,
-              },
-              { type: "image_url", image_url: { url: `data:${mime};base64,${base64}`, detail: "low" } },
-            ],
-          },
-        ],
-      }),
-    });
-
-    if (!res.ok) {
-      const body = await res.text();
-      return NextResponse.json({ error: `OpenAI error ${res.status}: ${body.slice(0, 300)}` }, { status: 502 });
+  const errors: string[] = [];
+  for (const p of providers) {
+    if (!p.key) continue;
+    try {
+      const result = await p.fn();
+      return NextResponse.json({ ...result, engine: p.name });
+    } catch (e) {
+      errors.push(`${p.name}: ${e instanceof Error ? e.message : "failed"}`);
     }
-
-    const json = await res.json();
-    const content = json.choices?.[0]?.message?.content ?? "{}";
-    const parsed = JSON.parse(content);
-
-    // Validate/normalize shape
-    const severity = ["high", "moderate", "low"].includes(parsed.severity) ? parsed.severity : "low";
-    return NextResponse.json({
-      severity,
-      confidence: Math.max(0, Math.min(100, parseInt(parsed.confidence) || 50)),
-      observations: Array.isArray(parsed.observations) ? parsed.observations.slice(0, 5).map(String) : [],
-      wasteTypes: Array.isArray(parsed.wasteTypes)
-        ? parsed.wasteTypes.slice(0, 6).map((w: any) => ({ label: String(w.label ?? "Other"), pct: Math.max(0, parseInt(w.pct) || 0) }))
-        : [],
-      recommendedAction: String(parsed.recommendedAction ?? ""),
-    });
-  } catch (e) {
-    return NextResponse.json({ error: e instanceof Error ? e.message : "Analysis failed" }, { status: 500 });
   }
+
+  if (errors.length === 0) {
+    return NextResponse.json({ error: "No vision API key configured (OPENAI_API_KEY or GEMINI_API_KEY)" }, { status: 501 });
+  }
+  return NextResponse.json({ error: errors.join(" | ") }, { status: 502 });
 }

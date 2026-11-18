@@ -19,7 +19,7 @@ export default function DetectionPage() {
   const [lng, setLng] = useState("106.8200");
   const [analyzing, setAnalyzing] = useState(false);
   const [annotated, setAnnotated] = useState<string | null>(null);
-  const [engine, setEngine] = useState<"openai" | "yolo" | "demo">("openai");
+  const [engine, setEngine] = useState<"openai" | "gemini" | "yolo" | "demo">("openai");
   const [result, setResult] = useState<(AIAnalysis & { detection?: WasteDetection }) | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [taskTruck, setTaskTruck] = useState("");
@@ -55,6 +55,7 @@ export default function DetectionPage() {
       const apiRes = await fetch("/api/analyze", { method: "POST", body: form });
       if (apiRes.ok) {
         const a = await apiRes.json();
+        const engineName = a.engine === "gemini" ? "gemini" : "openai";
         const analysis: AIAnalysis = {
           severity: a.severity,
           confidence: a.confidence,
@@ -66,7 +67,7 @@ export default function DetectionPage() {
           ],
           wasteTypes: a.wasteTypes?.length ? a.wasteTypes : [{ label: "Mixed waste", pct: 100 }],
         };
-        setEngine("openai");
+        setEngine(engineName);
         setResult(analysis);
         setAnalyzing(false);
         return;
@@ -142,7 +143,7 @@ export default function DetectionPage() {
       lng: +lng,
       severity: result.severity,
       confidence: result.confidence,
-      aiClass: engine === "openai" ? "gpt4o_vision_analysis" : engine === "yolo" ? "yolo26n_object_detection" : result.severity === "high" ? "severe_accumulation" : result.severity === "moderate" ? "moderate_accumulation" : "minor_litter",
+      aiClass: engine === "openai" ? "gpt4o_vision_analysis" : engine === "gemini" ? "gemini_vision_analysis" : engine === "yolo" ? "yolo26n_object_detection" : result.severity === "high" ? "severe_accumulation" : result.severity === "moderate" ? "moderate_accumulation" : "minor_litter",
       source: "manual",
       observations: result.observations,
       recommendedAction: result.recommendedActions[0],
@@ -228,7 +229,7 @@ export default function DetectionPage() {
             {analyzing ? "Analyzing image…" : "Run AI Analysis"}
           </Button>
           <p className="mt-2 text-center text-[10px] text-slate-400">
-            {engine === "openai" ? "GPT-4o vision analysis (OpenAI)." : engine === "yolo" ? "On-device YOLO26n (no API key)." : "Demo heuristic fallback."}
+            {engine === "openai" ? "GPT-4o vision (OpenAI)." : engine === "gemini" ? "Gemini vision (Google, free tier)." : engine === "yolo" ? "On-device YOLO26n (no API key)." : "Demo heuristic fallback."}
           </p>
         </Card>
 
@@ -240,8 +241,8 @@ export default function DetectionPage() {
                 <Sparkles className="h-4 w-4 text-emerald-600" /> AI Analysis Result
               </h3>
               <div className="flex items-center gap-2">
-                <Badge tone={engine === "openai" ? "green" : engine === "yolo" ? "purple" : "amber"}>
-                  {engine === "openai" ? "GPT-4o" : engine === "yolo" ? "YOLO26n" : "Demo AI"}
+                <Badge tone={engine === "openai" || engine === "gemini" ? "green" : engine === "yolo" ? "purple" : "amber"}>
+                  {engine === "openai" ? "GPT-4o" : engine === "gemini" ? "Gemini" : engine === "yolo" ? "YOLO26n" : "Demo AI"}
                 </Badge>
                 <SeverityBadge severity={result.severity} />
               </div>
