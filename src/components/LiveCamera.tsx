@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { Camera, CameraOff, Loader2, Trash2, Package, Box } from "lucide-react";
+import { Camera, CameraOff, Loader2, Trash2, Package, Box, Sparkles, AlertTriangle } from "lucide-react";
 import { Button, SeverityBadge, cn } from "@/components/ui";
 import type { Severity } from "@/lib/types";
 
@@ -81,6 +81,9 @@ export default function LiveCamera({ onResult }: Props) {
   const [live, setLive] = useState<LiveResult | null>(null);
   const [facing, setFacing] = useState<"environment" | "user">("environment");
   const [fps, setFps] = useState(0);
+  const [aiBusy, setAiBusy] = useState(false);
+  const [aiResult, setAiResult] = useState<any>(null);
+  const [aiError, setAiError] = useState("");
 
   const stop = useCallback(() => {
     cancelAnimationFrame(rafRef.current);
@@ -248,6 +251,37 @@ export default function LiveCamera({ onResult }: Props) {
 
   const switchCamera = () => setFacing((f) => (f === "environment" ? "user" : "environment"));
 
+  // Capture current frame and send to the vision API (Gemini/OpenAI) for rich scene analysis
+  const captureAndAnalyze = async () => {
+    const video = videoRef.current;
+    if (!video || video.readyState < 2 || aiBusy) return;
+    setAiBusy(true);
+    setAiError("");
+    setAiResult(null);
+    try {
+      const scale = Math.min(1, 1024 / Math.max(video.videoWidth, video.videoHeight));
+      const c = document.createElement("canvas");
+      c.width = Math.round(video.videoWidth * scale);
+      c.height = Math.round(video.videoHeight * scale);
+      c.getContext("2d")!.drawImage(video, 0, 0, c.width, c.height);
+      const blob = await new Promise<Blob | null>((r) => c.toBlob(r, "image/jpeg", 0.85));
+      if (!blob) throw new Error("Failed to capture frame");
+
+      const form = new FormData();
+      form.append("image", blob, "frame.jpg");
+      form.append("location", "Live camera feed");
+      form.append("district", "");
+      const res = await fetch("/api/analyze", { method: "POST", body: form });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? `Analysis failed (${res.status})`);
+      setAiResult(data);
+    } catch (e) {
+      setAiError(e instanceof Error ? e.message : "Analysis failed");
+    } finally {
+      setAiBusy(false);
+    }
+  };
+
   return (
     <div className="space-y-3">
       <div className="relative overflow-hidden rounded-2xl border border-slate-800 bg-slate-950">
@@ -297,6 +331,9 @@ export default function LiveCamera({ onResult }: Props) {
                 )}
               </div>
               <div className="flex shrink-0 gap-2">
+                <Button size="sm" variant="secondary" onClick={captureAndAnalyze} disabled={aiBusy} className="!bg-white/90 !text-slate-800" title="Capture frame → Gemini scene analysis">
+                  {aiBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />} Analyze
+                </Button>
                 <Button size="sm" variant="secondary" onClick={switchCamera} className="!bg-white/90 !text-slate-800">
                   <CameraOff className="h-3.5 w-3.5" /> Flip
                 </Button>
@@ -330,10 +367,36 @@ export default function LiveCamera({ onResult }: Props) {
         ))}
       </div>
 
+      {aiResult && (
+        <div className="fade-up rounded-2xl border border-emerald-200 bg-emerald-50/50 p-4">
+          <div className="mb-2 flex items-center justify-between">
+            <p className="flex items-center gap-1.5 text-xs font-bold text-slate-800">
+              <Sparkles className="h-3.5 w-3.5 text-emerald-600" /> Scene Analysis ({aiResult.engine === "gemini" ? "Gemini" : aiResult.engine === "openai" ? "GPT-4o" : aiResult.engine})
+            </p>
+            <SeverityBadge severity={aiResult.severity} />
+          </div>
+          <p className="text-[11px] text-slate-500">Confidence {aiResult.confidence}% · {aiResult.recommendedAction}</p>
+          <ul className="mt-1.5 space-y-1">
+            {(aiResult.observations ?? []).slice(0, 4).map((o: string, i: number) => (
+              <li key={i} className="flex gap-1.5 text-[11px] text-slate-600"><AlertTriangle className="mt-0.5 h-3 w-3 shrink-0 text-amber-500" />{o}</li>
+            ))}
+          </ul>
+          {aiResult.wasteTypes?.length > 0 && (
+            <p className="mt-2 text-[11px] font-semibold text-slate-600">
+              Waste types: {aiResult.wasteTypes.map((w: any) => `${w.label} ${w.pct}%`).join(" · ")}
+            </p>
+          )}
+        </div>
+      )}
+      {aiError && (
+        <p className="rounded-xl bg-red-50 px-3 py-2 text-[11px] text-red-600">{aiError}</p>
+      )}
+
       <p className="text-[10px] leading-relaxed text-slate-400">
         <strong>YOLO26n</strong> (Ultralytics, ONNX Runtime Web) detects 80 COCO object classes locally in your browser.
-        Waste-relevant classes (bottles, cups, bags, boxes) map to accumulation severity. Results are indicative only —
-        verify before dispatching crews. Model file: <code>public/models/yolo26n.onnx</code>.
+        Waste-relevant classes (bottles, cups, bags, boxes) map to accumulation severity. The <strong>Analyze</strong> button
+        captures the current frame and sends it to Gemini vision for richer scene-level classification (garbage piles, waste types).
+        Results are indicative only — verify before dispatching crews.
       </p>
     </div>
   );
