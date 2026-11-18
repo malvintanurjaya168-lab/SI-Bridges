@@ -71,32 +71,55 @@ async function analyzeOpenAI(base64: string, mime: string, location: string, dis
   return normalize(JSON.parse(json.choices?.[0]?.message?.content ?? "{}"));
 }
 
+const GEMINI_MODELS = [
+  process.env.GEMINI_MODEL || "gemini-3.8-flash",
+  "gemini-3.8-flash",
+  "gemini-3.5-flash",
+  "gemini-3.1-flash-lite",
+  "gemini-flash-latest",
+];
+
 async function analyzeGemini(base64: string, mime: string, location: string, district: string): Promise<AnalysisResult> {
-  const model = process.env.GEMINI_MODEL || "gemini-3.8-flash";
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${process.env.GEMINI_API_KEY}`;
-  const res = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
-      contents: [
-        {
-          role: "user",
-          parts: [
+  const seen = new Set<string>();
+  const models = GEMINI_MODELS.filter((m) => m && !seen.has(m) && seen.add(m));
+  let lastErr = "no model available";
+  for (const model of models) {
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${process.env.GEMINI_API_KEY}`;
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
+          contents: [
             {
-              text: `Assess waste accumulation in this image.${location ? ` Location context: ${location}, ${district}, Jakarta.` : ""} Classify severity and describe what you see. Respond with the JSON object only.`,
+              role: "user",
+              parts: [
+                {
+                  text: `Assess waste accumulation in this image.${location ? ` Location context: ${location}, ${district}, Jakarta.` : ""} Classify severity and describe what you see. Respond with the JSON object only.`,
+                },
+                { inline_data: { mime_type: mime, data: base64 } },
+              ],
             },
-            { inline_data: { mime_type: mime, data: base64 } },
           ],
-        },
-      ],
-      generationConfig: { temperature: 0.2, responseMimeType: "application/json" },
-    }),
-  });
-  if (!res.ok) throw new Error(`Gemini ${res.status}: ${(await res.text()).slice(0, 200)}`);
-  const json = await res.json();
-  const text = json.candidates?.[0]?.content?.parts?.map((p: any) => p.text).join("") ?? "{}";
-  return normalize(JSON.parse(text));
+          generationConfig: { temperature: 0.2, responseMimeType: "application/json" },
+        }),
+      });
+      if (res.ok) {
+        const json = await res.json();
+        const text = json.candidates?.[0]?.content?.parts?.map((p: any) => p.text).join("") ?? "{}";
+        return normalize(JSON.parse(text));
+      }
+      lastErr = `Gemini ${model} ${res.status}: ${(await res.text()).slice(0, 200)}`;
+      // 404/400 = bad model name, don't retry; 429/500/503 = transient, retry once
+      if (res.status === 429 || res.status >= 500) {
+        await new Promise((r) => setTimeout(r, 1500));
+        continue;
+      }
+      break;
+    }
+  }
+  throw new Error(lastErr);
 }
 
 export async function POST(req: NextRequest) {
