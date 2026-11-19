@@ -83,6 +83,7 @@ export interface CleaningTask {
   updatedAt: string;
   notes?: string;
   evidenceUploaded?: boolean;
+  evidenceUrl?: string;
   verified?: boolean;
 }
 

@@ -77,6 +77,7 @@ export function rowToTask(r: any): CleaningTask {
     updatedAt: r.updated_at,
     notes: r.notes ?? undefined,
     evidenceUploaded: r.evidence_uploaded ?? false,
+    evidenceUrl: r.evidence_url ?? undefined,
     verified: r.verified ?? false,
   };
 }
@@ -190,6 +191,7 @@ export function taskToRow(t: CleaningTask) {
     team: t.team ?? null,
     notes: t.notes ?? null,
     evidence_uploaded: t.evidenceUploaded ?? false,
+    evidence_url: t.evidenceUrl ?? null,
     verified: t.verified ?? false,
   };
 }

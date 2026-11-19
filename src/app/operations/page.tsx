@@ -164,6 +164,12 @@ export default function OperationsPage() {
                       {t.detectionId && <span className="ml-1 font-mono">· {t.detectionId}</span>}
                     </p>
                     {t.notes && <p className="mt-0.5 text-[11px] italic text-slate-400">Note: {t.notes}</p>}
+                    {t.evidenceUrl && (
+                      <a href={t.evidenceUrl} target="_blank" rel="noreferrer">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={t.evidenceUrl} alt="completion proof" className="mt-2 h-16 w-24 rounded-lg border border-emerald-200 object-cover" />
+                      </a>
+                    )}
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
                     {/* assign */}

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import Link from "next/link";
 import { ClipboardList, PlayCircle, CheckCircle2, Camera, MapPin, UserCheck } from "lucide-react";
 import { Card, Button, Badge, StatusBadge, DemoTag, fmtDate, EmptyState, cn } from "@/components/ui";
@@ -16,11 +16,12 @@ const DRIVER_NEXT: Record<string, { label: string; to: CleaningTask["status"]; i
 };
 
 function TaskCard({
-  t, truck, detImg, action,
+  t, truck, detImg, evImg, action,
 }: {
   t: CleaningTask;
   truck?: { plate: string; driver?: string; team?: string };
   detImg?: string;
+  evImg?: string;
   action?: React.ReactNode;
 }) {
   return (
@@ -36,8 +37,18 @@ function TaskCard({
           <p className="mt-0.5 flex items-center gap-1 text-xs text-slate-500"><MapPin className="h-3 w-3" />{t.location} · {t.district}</p>
           {t.notes && <p className="mt-1 text-xs text-slate-400">📝 {t.notes}</p>}
           {detImg && (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={detImg} alt="citizen report" className="mt-2 h-20 w-28 rounded-lg border border-slate-200 object-cover" />
+            <div className="mt-2">
+              <p className="mb-1 text-[9px] font-bold uppercase tracking-wider text-slate-400">Citizen photo</p>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={detImg} alt="citizen report" className="h-28 w-40 rounded-lg border border-slate-200 object-cover" />
+            </div>
+          )}
+          {evImg && (
+            <div className="mt-2">
+              <p className="mb-1 text-[9px] font-bold uppercase tracking-wider text-emerald-600">Completion proof</p>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={evImg} alt="completion proof" className="h-28 w-40 rounded-lg border border-emerald-200 object-cover" />
+            </div>
           )}
         </div>
         {action}
@@ -56,10 +67,12 @@ function TaskCard({
 }
 
 export default function RequestsPage() {
-  const { tasks, trucks, detections, updateTaskStatus, uploadTaskEvidence, assignTask, currentUser } = useStore();
+  const { tasks, trucks, detections, updateTaskStatus, uploadTaskEvidence, assignTask, completeAssignment, currentUser } = useStore();
   const isAdmin = currentUser?.role === "admin";
   const isDriver = currentUser?.role === "truck_operator";
   const [busy, setBusy] = useState<string | null>(null);
+  const [pendingComplete, setPendingComplete] = useState<string | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
 
   const open = tasks.filter((t) => !["completed", "cancelled"].includes(t.status));
   // Admin dispatch board: unassigned first, then in-flight jobs (read-only)
@@ -85,9 +98,23 @@ export default function RequestsPage() {
     const n = DRIVER_NEXT[t.status];
     if (!n) return;
     setBusy(t.id);
-    updateTaskStatus(t.id, n.to);
-    if (n.to === "completed") uploadTaskEvidence(t.id);
+    if (n.to === "completed") {
+      // Driver must attach photo proof — opens camera/gallery picker
+      setPendingComplete(t.id);
+      fileRef.current?.click();
+    } else {
+      updateTaskStatus(t.id, n.to);
+    }
     setTimeout(() => setBusy(null), 400);
+  };
+
+  const onEvidenceFile = async (f: File | null) => {
+    if (!f || !pendingComplete) return;
+    const id = pendingComplete;
+    setPendingComplete(null);
+    setBusy(id);
+    await completeAssignment(id, f);
+    setBusy(null);
   };
 
   const assignSelect = (t: CleaningTask) => (
@@ -152,7 +179,7 @@ export default function RequestsPage() {
           ) : (
             <div className="mb-5 space-y-3">
               {adminQueue.map((t) => (
-                <TaskCard key={t.id} t={t} truck={truckOf(t)} detImg={detOf(t)?.imageUrl} action={assignSelect(t)} />
+                <TaskCard key={t.id} t={t} truck={truckOf(t)} detImg={detOf(t)?.imageUrl} evImg={t.evidenceUrl} action={assignSelect(t)} />
               ))}
             </div>
           )}
@@ -163,7 +190,7 @@ export default function RequestsPage() {
           ) : (
             <div className="space-y-3">
               {adminActive.map((t) => (
-                <TaskCard key={t.id} t={t} truck={truckOf(t)} detImg={detOf(t)?.imageUrl} />
+                <TaskCard key={t.id} t={t} truck={truckOf(t)} detImg={detOf(t)?.imageUrl} evImg={t.evidenceUrl} />
               ))}
             </div>
           )}
@@ -186,6 +213,7 @@ export default function RequestsPage() {
                   t={t}
                   truck={truckOf(t)}
                   detImg={detOf(t)?.imageUrl}
+                  evImg={t.evidenceUrl}
                   action={next && (
                     <Button size="sm" onClick={() => advance(t)} disabled={busy === t.id} className={next.cls}>
                       {next.icon}{next.label}
@@ -196,6 +224,20 @@ export default function RequestsPage() {
             })}
           </div>
         )
+      )}
+
+      <input
+        ref={fileRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        className="hidden"
+        onChange={(e) => onEvidenceFile(e.target.files?.[0] ?? null)}
+      />
+      {isDriver && (
+        <p className="mt-4 text-center text-[10px] text-slate-400">
+          Press <span className="font-semibold text-slate-500">Complete</span> to open your camera — attach a photo proving the area is clean.
+        </p>
       )}
 
       <p className="mt-4 text-center text-[10px] text-slate-400">

@@ -71,6 +71,10 @@ export default function CleanedAreasPage() {
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-semibold text-slate-800">{t.location}</p>
                   <p className="text-[11px] text-slate-400">{t.district} · {t.title}</p>
+                  {t.evidenceUrl && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={t.evidenceUrl} alt="cleaned proof" className="mt-1.5 h-14 w-20 rounded-lg border border-slate-200 object-cover" />
+                  )}
                 </div>
                 <div className="text-right">
                   <p className="text-xs font-medium text-slate-600">{fmtDate(t.updatedAt)}</p>

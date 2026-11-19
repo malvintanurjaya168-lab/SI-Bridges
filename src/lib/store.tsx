@@ -74,6 +74,7 @@ interface Store extends AppState {
   updateTaskStatus: (taskId: string, status: TaskStatus, notes?: string) => void;
   assignTask: (taskId: string, truckId: string, team: string) => void;
   uploadTaskEvidence: (taskId: string) => void;
+  completeAssignment: (taskId: string, file?: File) => Promise<void>;
   verifyTask: (taskId: string) => void;
   addDelivery: (delivery: Omit<Delivery, "id" | "timestamp" | "status">) => void;
   acknowledgeAlert: (id: string) => void;
@@ -461,6 +462,35 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         if (sb) {
           sb.from("cleaning_tasks").update({ truck_id: truckId, team, status: "assigned", updated_at: new Date().toISOString() }).eq("id", taskId)
             .then(({ error }) => error && console.error(error));
+        }
+      },
+
+      completeAssignment: async (taskId, file) => {
+        let evidenceUrl: string | undefined;
+        if (file && sb) {
+          try {
+            const path = `evidence/${taskId}-${Date.now()}.jpg`;
+            const { error } = await sb.storage.from("detection-images").upload(path, file, { contentType: file.type || "image/jpeg" });
+            if (!error) evidenceUrl = sb.storage.from("detection-images").getPublicUrl(path).data.publicUrl;
+          } catch { /* evidence optional if storage unavailable */ }
+        } else if (file) {
+          evidenceUrl = URL.createObjectURL(file); // demo mode
+        }
+        setState((s) => ({
+          ...s,
+          tasks: s.tasks.map((t) =>
+            t.id === taskId
+              ? { ...t, status: "completed" as TaskStatus, evidenceUploaded: true, evidenceUrl: evidenceUrl ?? t.evidenceUrl, updatedAt: new Date().toISOString() }
+              : t
+          ),
+        }));
+        if (sb) {
+          sb.from("cleaning_tasks").update({
+            status: "completed",
+            evidence_uploaded: true,
+            evidence_url: evidenceUrl ?? null,
+            updated_at: new Date().toISOString(),
+          }).eq("id", taskId).then(({ error }) => error && console.error(error));
         }
       },
 
