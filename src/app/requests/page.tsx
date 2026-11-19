@@ -38,14 +38,14 @@ function TaskCard({
           {t.notes && <p className="mt-1 text-xs text-slate-400">📝 {t.notes}</p>}
           {detImg && (
             <div className="mt-2">
-              <p className="mb-1 text-[9px] font-bold uppercase tracking-wider text-slate-400">Citizen photo</p>
+              <p className="mb-1 text-[9px] font-bold uppercase tracking-wider text-slate-400">Reported area (before)</p>
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={detImg} alt="citizen report" className="h-28 w-40 rounded-lg border border-slate-200 object-cover" />
             </div>
           )}
           {evImg && (
             <div className="mt-2">
-              <p className="mb-1 text-[9px] font-bold uppercase tracking-wider text-emerald-600">Completion proof</p>
+              <p className="mb-1 text-[9px] font-bold uppercase tracking-wider text-emerald-600">After cleaning (your proof)</p>
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={evImg} alt="completion proof" className="h-28 w-40 rounded-lg border border-emerald-200 object-cover" />
             </div>
