@@ -9,7 +9,7 @@ import type { CleaningTask, Severity, WasteDetection } from "@/lib/types";
 // Driver actions — simple two-step execution:
 //   assigned/en_route --[Start Cleaning]--> in_progress --[Complete]--> completed (+photo proof)
 const DRIVER_NEXT: Record<string, { label: string; to: CleaningTask["status"]; icon: React.ReactNode; cls?: string } | undefined> = {
-  assigned: { label: "Start Cleaning", to: "in_progress", icon: <PlayCircle className="h-4 w-4" /> },
+  assigned: { label: "Accept Job", to: "en_route", icon: <CheckCircle2 className="h-4 w-4" /> },
   en_route: { label: "Start Cleaning", to: "in_progress", icon: <PlayCircle className="h-4 w-4" /> },
   in_progress: { label: "Complete", to: "completed", icon: <CheckCircle2 className="h-4 w-4" />, cls: "bg-emerald-600 hover:bg-emerald-700" },
 };
@@ -35,18 +35,20 @@ function TaskCard({
           <p className="mt-1 text-sm font-bold text-slate-900">{t.title}</p>
           <p className="mt-0.5 flex items-center gap-1 text-xs text-slate-500"><MapPin className="h-3 w-3" />{t.location} · {t.district}</p>
           {t.notes && <p className="mt-1 text-xs text-slate-400">📝 {t.notes}</p>}
-          {detImg && (
+          {detImg ? (
             <div className="mt-2">
               <p className="mb-1 text-[9px] font-bold uppercase tracking-wider text-slate-400">Reported area (before)</p>
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={detImg} alt="citizen report" className="h-28 w-40 rounded-lg border border-slate-200 object-cover" />
+              <img src={detImg} alt="citizen report" className="h-36 w-52 rounded-lg border border-slate-200 object-cover" />
             </div>
-          )}
+          ) : t.detectionId ? (
+            <p className="mt-2 rounded-lg bg-slate-50 px-2 py-1.5 text-[10px] text-slate-400">Linked report {t.detectionId} — citizen attached no photo.</p>
+          ) : null}
           {evImg && (
             <div className="mt-2">
               <p className="mb-1 text-[9px] font-bold uppercase tracking-wider text-emerald-600">After cleaning (your proof)</p>
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={evImg} alt="completion proof" className="h-28 w-40 rounded-lg border border-emerald-200 object-cover" />
+              <img src={evImg} alt="completion proof" className="h-36 w-52 rounded-lg border border-emerald-200 object-cover" />
             </div>
           )}
         </div>
