@@ -476,21 +476,28 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         } else if (file) {
           evidenceUrl = URL.createObjectURL(file); // demo mode
         }
+        // Driver completion auto-publishes: task is verified and the linked
+        // detection is resolved, so the result appears on /cleaned immediately.
+        const detId = state.tasks.find((t) => t.id === taskId)?.detectionId;
         setState((s) => ({
           ...s,
           tasks: s.tasks.map((t) =>
             t.id === taskId
-              ? { ...t, status: "completed" as TaskStatus, evidenceUploaded: true, evidenceUrl: evidenceUrl ?? t.evidenceUrl, updatedAt: new Date().toISOString() }
+              ? { ...t, status: "completed" as TaskStatus, verified: true, evidenceUploaded: true, evidenceUrl: evidenceUrl ?? t.evidenceUrl, updatedAt: new Date().toISOString() }
               : t
           ),
+          detections: s.detections.map((d) => (d.id === detId ? { ...d, status: "resolved" as const } : d)),
         }));
         if (sb) {
           sb.from("cleaning_tasks").update({
             status: "completed",
+            verified: true,
+            verified_by: state.currentUserId,
             evidence_uploaded: true,
             evidence_url: evidenceUrl ?? null,
             updated_at: new Date().toISOString(),
           }).eq("id", taskId).then(({ error }) => error && console.error(error));
+          if (detId) sb.from("detections").update({ status: "resolved" }).eq("id", detId).then(({ error }) => error && console.error(error));
         }
       },
 
