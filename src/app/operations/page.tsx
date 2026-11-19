@@ -7,8 +7,8 @@ import { useStore } from "@/lib/store";
 import type { CleaningTask } from "@/lib/types";
 
 // Admin Operations = read-only route board.
-//   Rute Harian   — routine/scheduled cleaning tasks (not from citizen reports)
-//   Rute Tambahan — extra routes created from citizen waste reports
+//   Daily Routes      — routine/scheduled cleaning tasks (not from citizen reports)
+//   Additional Routes — extra routes created from citizen waste reports
 // Execution happens on the driver's /requests page; results publish to /cleaned.
 
 function RouteRow({ t, truck, detImg, citizen }: { t: CleaningTask; truck?: { plate: string; driver?: string; team?: string }; detImg?: string; citizen?: boolean }) {
@@ -122,10 +122,10 @@ export default function OperationsPage() {
         <span className="text-xs text-slate-400">{filtered.length} routes</span>
       </div>
 
-      {/* Rute Tambahan — citizen requests */}
+      {/* Additional Routes — citizen requests */}
       <section>
         <h3 className="mb-2 flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-amber-600">
-          <UserCheck className="h-3.5 w-3.5" /> Rute Tambahan — Citizen Requests ({extraRoutes.length})
+          <UserCheck className="h-3.5 w-3.5" /> Additional Routes — Citizen Requests ({extraRoutes.length})
         </h3>
         <Card className="overflow-hidden">
           {extraRoutes.length === 0 ? (
@@ -140,10 +140,10 @@ export default function OperationsPage() {
         </Card>
       </section>
 
-      {/* Rute Harian — routine routes */}
+      {/* Daily Routes — routine routes */}
       <section>
         <h3 className="mb-2 flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-slate-500">
-          <Users className="h-3.5 w-3.5" /> Rute Harian — Scheduled Routes ({dailyRoutes.length})
+          <Users className="h-3.5 w-3.5" /> Daily Routes — Scheduled Routes ({dailyRoutes.length})
         </h3>
         <Card className="overflow-hidden">
           {dailyRoutes.length === 0 ? (

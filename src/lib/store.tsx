@@ -433,8 +433,21 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           };
         });
         if (sb && created) {
-          sb.from("cleaning_tasks").insert({ ...taskToRow(created), created_by: state.currentUserId }).then(({ error }) => error && console.error(error));
-          sb.from("detections").update({ status: "assigned" }).eq("id", detectionId).then(({ error }) => error && console.error(error));
+          sb.from("cleaning_tasks").insert({ ...taskToRow(created), created_by: state.currentUserId }).then(({ error }) => {
+            if (!error) {
+              sb.from("detections").update({ status: "assigned" }).eq("id", detectionId).then(({ error: e2 }) => e2 && console.error(e2));
+              return;
+            }
+            // Insert rejected (missing column / RLS / FK) — remove the ghost
+            // task and release the detection back to 'verified' so admin can retry.
+            console.error("createTaskFromDetection insert failed:", error.message);
+            setState((s) => ({
+              ...s,
+              tasks: s.tasks.filter((t) => t.id !== created!.id),
+              detections: s.detections.map((d) => (d.id === detectionId && d.status === "assigned" ? { ...d, status: "verified" as const } : d)),
+            }));
+            sb.from("detections").update({ status: "verified" }).eq("id", detectionId).then(() => {});
+          });
         }
         return created;
       },
