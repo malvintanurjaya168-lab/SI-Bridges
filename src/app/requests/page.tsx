@@ -74,18 +74,10 @@ function ReportReviewCard({ d, trucks, onDone }: { d: WasteDetection; trucks: { 
   const [sev, setSev] = useState<Severity>(d.severity);
   const [conf, setConf] = useState(d.confidence);
   const [note, setNote] = useState("");
-  const [approved, setApproved] = useState(false);
   const [truckId, setTruckId] = useState("");
 
-  const approve = () => {
+  const approveAndAssign = () => {
     reviewDetection(d.id, "approve", { severity: sev, confidence: conf, note });
-    setApproved(true);
-  };
-  const reject = () => {
-    reviewDetection(d.id, "reject", { note });
-    onDone();
-  };
-  const dispatch = () => {
     const task = createTaskFromDetection(d.id, truckId || undefined);
     if (task && truckId) {
       const tr = trucks.find((x) => x.id === truckId);
@@ -93,7 +85,10 @@ function ReportReviewCard({ d, trucks, onDone }: { d: WasteDetection; trucks: { 
     }
     onDone();
   };
-
+  const reject = () => {
+    reviewDetection(d.id, "reject", { note });
+    onDone();
+  };
   return (
     <div className="rounded-xl border border-amber-200 bg-white">
       <button onClick={() => setOpen(!open)} className="flex w-full items-center justify-between gap-2 px-3 py-2.5 text-left text-xs hover:bg-amber-50/50">
@@ -123,8 +118,7 @@ function ReportReviewCard({ d, trucks, onDone }: { d: WasteDetection; trucks: { 
             </div>
           </div>
 
-          {!approved ? (
-            <>
+          <>
               <div className="mt-3 grid grid-cols-2 gap-2">
                 <div>
                   <Label>Severity</Label>
@@ -143,25 +137,21 @@ function ReportReviewCard({ d, trucks, onDone }: { d: WasteDetection; trucks: { 
                 <Label>Review note (optional)</Label>
                 <Input value={note} onChange={(e) => setNote(e.target.value)} placeholder="e.g. Verified on-site; pile confirmed" />
               </div>
-              <div className="mt-3 flex gap-2">
-                <Button size="sm" onClick={approve} className="flex-1"><CheckCircle2 className="h-4 w-4" /> Approve</Button>
-                <Button size="sm" variant="danger" onClick={reject} className="flex-1">Reject</Button>
-              </div>
-            </>
-          ) : (
-            <div className="mt-3 rounded-xl bg-emerald-50 p-3">
-              <p className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-emerald-700"><ShieldAlert className="h-3.5 w-3.5" /> Approved — assign a truck to dispatch</p>
-              <div className="flex gap-2">
-                <Select value={truckId} onChange={(e) => setTruckId(e.target.value)} className="flex-1">
+              <div className="mt-3">
+                <Label>Assign truck driver</Label>
+                <Select value={truckId} onChange={(e) => setTruckId(e.target.value)}>
                   <option value="">Select truck…</option>
                   {trucks.filter((t) => t.status === "active" || t.status === "idle").map((t) => (
                     <option key={t.id} value={t.id}>{t.plate} — {t.team}</option>
                   ))}
                 </Select>
-                <Button size="sm" onClick={dispatch} disabled={!truckId}>Assign & Dispatch</Button>
               </div>
-            </div>
-          )}
+              <div className="mt-3 flex gap-2">
+                <Button size="sm" onClick={approveAndAssign} disabled={!truckId} className="flex-1"><CheckCircle2 className="h-4 w-4" /> Approve & Assign</Button>
+                <Button size="sm" variant="danger" onClick={reject} className="flex-1">Reject</Button>
+              </div>
+              {!truckId && <p className="mt-1.5 text-[10px] text-slate-400">Pick a truck to approve and dispatch in one step.</p>}
+          </>
         </div>
       )}
     </div>
