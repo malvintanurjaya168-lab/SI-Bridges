@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import Link from "next/link";
 import { ClipboardList, Navigation, PlayCircle, CheckCircle2, Camera, MapPin } from "lucide-react";
 import { Card, Button, Badge, StatusBadge, DemoTag, fmtDate, EmptyState, cn } from "@/components/ui";
 import { useStore } from "@/lib/store";
@@ -13,13 +14,14 @@ const NEXT: Record<string, { label: string; to: CleaningTask["status"]; icon: Re
 };
 
 export default function RequestsPage() {
-  const { tasks, trucks, detections, updateTaskStatus, uploadTaskEvidence, currentUser } = useStore();
+  const { tasks, trucks, detections, updateTaskStatus, uploadTaskEvidence, assignTask, currentUser } = useStore();
+  const isAdmin = currentUser?.role === "admin";
   const [busy, setBusy] = useState<string | null>(null);
 
   // Requests = tasks dispatched by admin/operator and assigned to a truck.
   // Originates from citizen reports -> staff review -> task -> truck assignment.
   const requests = tasks
-    .filter((t) => t.truckId && !["completed", "cancelled"].includes(t.status))
+    .filter((t) => !["completed", "cancelled"].includes(t.status) && (isAdmin || t.truckId))
     .sort((a, b) => {
       const order = { in_progress: 0, en_route: 1, assigned: 2, pending: 3 } as Record<string, number>;
       return (order[a.status] ?? 9) - (order[b.status] ?? 9);
@@ -27,6 +29,10 @@ export default function RequestsPage() {
 
   const truckOf = (t: CleaningTask) => trucks.find((x) => x.id === t.truckId);
   const detOf = (t: CleaningTask) => (t.detectionId ? detections.find((d) => d.id === t.detectionId) : undefined);
+  // Citizen reports still awaiting human review (admin only)
+  const pendingReports = isAdmin
+    ? detections.filter((d) => d.source === "citizen_report" && d.status === "new")
+    : [];
 
   const advance = (t: CleaningTask) => {
     const n = NEXT[t.status];
@@ -42,14 +48,31 @@ export default function RequestsPage() {
       <div className="mb-5 flex items-center justify-between">
         <div>
           <h1 className="flex items-center gap-2 text-xl font-bold text-slate-900"><ClipboardList className="h-5 w-5 text-teal-600" /> Cleaning Requests</h1>
-          <p className="text-sm text-slate-500">Dispatches assigned to your truck — review the pile, drive there, clean, done.</p>
+          <p className="text-sm text-slate-500">Citizen reports verified by staff become dispatches here — assign a truck to send a driver.</p>
         </div>
         <DemoTag />
       </div>
 
+      {pendingReports.length > 0 && (
+        <Card className="mb-4 border-amber-200 bg-amber-50/50 p-4">
+          <p className="mb-2 text-xs font-bold uppercase tracking-wider text-amber-700">Citizen reports awaiting review ({pendingReports.length})</p>
+          <div className="space-y-1.5">
+            {pendingReports.map((d) => (
+              <div key={d.id} className="flex items-center justify-between gap-2 rounded-lg bg-white px-3 py-2 text-xs">
+                <div className="min-w-0">
+                  <span className="font-mono font-semibold text-slate-600">{d.id}</span>
+                  <span className="ml-2 text-slate-500">{d.location} · {d.district}</span>
+                </div>
+                <Link href="/detection" className="shrink-0 rounded-lg bg-blue-600 px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-blue-700">Review →</Link>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
+
       {requests.length === 0 ? (
         <Card>
-          <EmptyState icon={<ClipboardList className="h-6 w-6" />} title="No active requests" sub="When an admin assigns a verified waste report to your truck, it appears here." />
+          <EmptyState icon={<ClipboardList className="h-6 w-6" />} title="No active requests" sub="When an admin assigns a verified waste report to a truck, it appears here." />
         </Card>
       ) : (
         <div className="space-y-3">
@@ -69,6 +92,21 @@ export default function RequestsPage() {
                     <p className="mt-0.5 flex items-center gap-1 text-xs text-slate-500"><MapPin className="h-3 w-3" />{t.location} · {t.district}</p>
                     {t.notes && <p className="mt-1 text-xs text-slate-400">📝 {t.notes}</p>}
                   </div>
+                  {isAdmin && (t.status === "pending" || !t.truckId) && (
+                    <select
+                      className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs font-medium text-slate-700"
+                      value={t.truckId ?? ""}
+                      onChange={(e) => {
+                        const tr = trucks.find((x) => x.id === e.target.value);
+                        if (tr) assignTask(t.id, tr.id, tr.team);
+                      }}
+                    >
+                      <option value="">Assign truck…</option>
+                      {trucks.filter((x) => x.status === "active" || x.status === "idle").map((x) => (
+                        <option key={x.id} value={x.id}>{x.plate} — {x.team}</option>
+                      ))}
+                    </select>
+                  )}
                   {next && (
                     <Button size="sm" onClick={() => advance(t)} disabled={busy === t.id} className={cn(t.status === "in_progress" && "bg-emerald-600 hover:bg-emerald-700")}>
                       {next.icon}{next.label}
